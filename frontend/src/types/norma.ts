@@ -25,6 +25,7 @@ export interface Norma {
   criado_em: string;
   atualizado_em: string;
   aplicavel?: boolean;
+  sistema_gestao?: string;
   status_aprovacao?: 'aprovado' | 'recusado' | null;
 }
 

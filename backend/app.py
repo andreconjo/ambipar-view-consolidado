@@ -867,10 +867,11 @@ def get_norma_with_management_systems(norma_id):
 @token_required
 def sync_aplicavel():
     """
-    POST /normas/sync-aplicavel - Sincroniza a flag 'aplicavel' baseada nas classificações (requer autenticação)
+    POST /normas/sync-aplicavel - Sincroniza a flag 'aplicavel' e 'sistema_gestao' baseada nas classificações (requer autenticação)
 
     Faz JOIN entre management_systems_classifications e tb_normas_consolidadas
-    e marca como aplicável as normas que têm classification = true
+    e marca como aplicável as normas que têm classification = true,
+    além de adicionar o sistema de gestão correspondente
     """
     try:
         conn_normas = get_db_connection()
@@ -889,22 +890,36 @@ def sync_aplicavel():
             )
             conn_normas.commit()
 
-        # Resetar todas para false primeiro
-        conn_normas.execute("UPDATE tb_normas_consolidadas SET aplicavel = false")
+        # Verificar se coluna sistema_gestao existe, senão criar
+        try:
+            conn_normas.execute(
+                "SELECT sistema_gestao FROM tb_normas_consolidadas LIMIT 1"
+            )
+        except:
+            # Coluna não existe, criar
+            conn_normas.execute(
+                """
+                ALTER TABLE tb_normas_consolidadas 
+                ADD COLUMN sistema_gestao VARCHAR
+            """
+            )
+            conn_normas.commit()
 
-        # Buscar normas com classification = true
+        # Resetar todas para false e NULL primeiro
+        conn_normas.execute(
+            "UPDATE tb_normas_consolidadas SET aplicavel = false, sistema_gestao = NULL"
+        )
+
+        # Buscar normas com classification = true e seus sistemas de gestão
         classificadas = conn_mgmt.execute(
             """
-            SELECT DISTINCT norm_id
+            SELECT norm_id, mngm_sys
             FROM management_systems_classifications
             WHERE classification = true
         """
         ).fetchall()
 
-        # Extrair IDs
-        norm_ids = [row[0] for row in classificadas]
-
-        if not norm_ids:
+        if not classificadas:
             conn_normas.close()
             conn_mgmt.close()
             return jsonify(
@@ -914,17 +929,33 @@ def sync_aplicavel():
                 }
             )
 
-        # Atualizar normas para aplicavel = true
-        placeholders = ",".join(["?" for _ in norm_ids])
-        query = f"""
-            UPDATE tb_normas_consolidadas 
-            SET aplicavel = true 
-            WHERE id IN ({placeholders})
-        """
-        conn_normas.execute(query, norm_ids)
+        # Agrupar sistemas de gestão por norma (caso uma norma tenha múltiplos sistemas)
+        normas_sistemas = {}
+        for norm_id, mngm_sys in classificadas:
+            if norm_id not in normas_sistemas:
+                normas_sistemas[norm_id] = []
+            if mngm_sys and mngm_sys not in normas_sistemas[norm_id]:
+                normas_sistemas[norm_id].append(mngm_sys)
+
+        # Atualizar cada norma com seu(s) sistema(s) de gestão
+        total_atualizadas = 0
+        for norm_id, sistemas in normas_sistemas.items():
+            # Juntar múltiplos sistemas com vírgula
+            sistemas_str = ", ".join(sistemas) if sistemas else None
+
+            conn_normas.execute(
+                """
+                UPDATE tb_normas_consolidadas 
+                SET aplicavel = true, sistema_gestao = ?
+                WHERE id = ?
+            """,
+                [sistemas_str, norm_id],
+            )
+            total_atualizadas += 1
+
         conn_normas.commit()
 
-        total_atualizadas = len(norm_ids)
+        norm_ids = list(normas_sistemas.keys())
 
         conn_normas.close()
         conn_mgmt.close()

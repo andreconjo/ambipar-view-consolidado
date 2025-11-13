@@ -60,6 +60,30 @@ export const NormaDetail = ({ norma, onClose }: NormaDetailProps) => {
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4">Classificação</h4>
             <dl className="space-y-1">
+              <div className="py-3 border-b border-gray-200">
+                <dt className="text-sm font-medium text-gray-500 mb-1">Aplicável</dt>
+                <dd className="text-base">
+                  {norma.aplicavel ? (
+                    <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+                      Sim
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                      Não
+                    </span>
+                  )}
+                </dd>
+              </div>
+              {norma.sistema_gestao && (
+                <div className="py-3 border-b border-gray-200">
+                  <dt className="text-sm font-medium text-gray-500 mb-1">Sistema de Gestão (Classificado)</dt>
+                  <dd className="text-base">
+                    <span className="px-2 py-1 text-xs font-medium bg-indigo-100 text-indigo-800 rounded">
+                      {norma.sistema_gestao}
+                    </span>
+                  </dd>
+                </div>
+              )}
               <DetailRow label="Temas" value={norma.temas} />
               <DetailRow label="Sistema de Gestão" value={norma.sistema_de_gestao} />
               <DetailRow label="Ramo de Atividade" value={norma.ramo_de_atividade} />

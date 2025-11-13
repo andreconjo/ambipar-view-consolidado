@@ -37,6 +37,7 @@ export const NormasTable = memo(({ data, isLoading, onView, onEdit, onDelete, on
               <th className="px-4 py-3 text-left">Origem Dado</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-center">Aplicável</th>
+              <th className="px-4 py-3 text-left">Sistema de Gestão</th>
               <th className="px-4 py-3 text-center">Aprovação</th>
               <th className="px-4 py-3 text-center">Ações</th>
             </tr>
@@ -90,6 +91,15 @@ export const NormasTable = memo(({ data, isLoading, onView, onEdit, onDelete, on
                     <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
                       Não
                     </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-700">
+                  {norma.sistema_gestao ? (
+                    <span className="px-2 py-1 text-xs font-medium bg-indigo-50 text-indigo-700 rounded">
+                      {norma.sistema_gestao}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3">
