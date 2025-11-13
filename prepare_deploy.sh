@@ -16,7 +16,7 @@ echo -e "${GREEN}🚀 Preparando deploy...${NC}"
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMP_DIR="${BASE_DIR}/deploy_temp"
 ZIP_NAME="view_consolidado_deploy_$(date +%Y%m%d_%H%M%S).zip"
-DB_PATH="/Users/conjo/Documents/ambipar/db_consolidado/local_dev.db"
+DB_PATH="/Users/conjo/Documents/ambipar/db_consolidado/tb_normas_consolidadas.db"
 DB_MANAGEMENT_PATH="/Users/conjo/Documents/ambipar/db_consolidado/management_systems_classifications.db"
 
 # Limpar diretório temporário se existir
@@ -61,7 +61,7 @@ cp "${BASE_DIR}/DEPLOY_README.md" "${TEMP_DIR}/view_consolidado/README.md"
 if [ -f "$DB_PATH" ]; then
     echo -e "${GREEN}💾 Copiando banco de dados principal...${NC}"
     mkdir -p "${TEMP_DIR}/view_consolidado/database"
-    cp "$DB_PATH" "${TEMP_DIR}/view_consolidado/database/local_dev.db"
+    cp "$DB_PATH" "${TEMP_DIR}/view_consolidado/database/tb_normas_consolidadas.db"
     DB_SIZE=$(du -h "$DB_PATH" | cut -f1)
     echo -e "${GREEN}✅ Banco de dados principal copiado (${DB_SIZE})${NC}"
 else

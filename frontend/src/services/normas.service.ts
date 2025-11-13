@@ -59,9 +59,12 @@ const getStatusAprovacao = async (normaId: number) => {
 export const normasService = {
   getNormas,
   getNormaById,
+  create: createNorma,
+  update: updateNorma,
+  delete: deleteNorma,
+  deleteNorma,
   createNorma,
   updateNorma,
-  deleteNorma,
   getStats,
   getFiltrosValores,
   syncAplicavel,

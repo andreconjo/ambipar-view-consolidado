@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Loader } from '../components/ui/Loader';
 import toast from 'react-hot-toast';
 import { FiLock, FiUser, FiShield, FiCheckCircle } from 'react-icons/fi';
 

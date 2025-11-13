@@ -429,7 +429,7 @@ export default function NormasPage() {
   }, [selectedNorma, aprovacaoStatus, refetch]);
 
   const deleteMutation = useMutation({
-    mutationFn: normasService.deleteNorma,
+    mutationFn: (id: number) => normasService.deleteNorma(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['normas'] });
       toast.success('Norma excluída com sucesso!');

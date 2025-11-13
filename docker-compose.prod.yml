@@ -17,7 +17,7 @@ services:
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=production
-      - DB_PATH=/data/local_dev.db
+      - DB_PATH=/data/tb_normas_consolidadas.db
       - DB_MANAGEMENT_PATH=/data/management_systems_classifications.db
     restart: unless-stopped
     networks:
