@@ -30,7 +30,6 @@ export interface Norma {
 
 export interface AprovacaoData {
   status: 'aprovado' | 'recusado';
-  solicitante: string;
   observacao?: string;
 }
 

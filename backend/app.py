@@ -1,12 +1,19 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_bcrypt import Bcrypt
 import duckdb
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import os
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
-CORS(app)
+app.config["SECRET_KEY"] = os.getenv(
+    "SECRET_KEY", "ambipar-secret-key-change-in-production"
+)
+CORS(app, supports_credentials=True)
+bcrypt = Bcrypt(app)
 
 # Caminhos para os bancos de dados
 DB_PATH = os.getenv(
@@ -28,6 +35,191 @@ def get_management_db_connection():
     return duckdb.connect(DB_MANAGEMENT_PATH)
 
 
+# ==================== AUTENTICAÇÃO ====================
+
+
+def init_usuarios_table():
+    """Cria a tabela de usuários se não existir"""
+    conn = get_db_connection()
+    try:
+        # Criar sequence para IDs
+        conn.execute("CREATE SEQUENCE IF NOT EXISTS seq_usuarios START 1")
+
+        # Criar tabela
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tb_usuarios (
+                id INTEGER PRIMARY KEY,
+                username VARCHAR NOT NULL UNIQUE,
+                password_hash VARCHAR NOT NULL,
+                nome_completo VARCHAR NOT NULL,
+                tipo_usuario VARCHAR NOT NULL CHECK(tipo_usuario IN ('admin', 'user')),
+                ativo BOOLEAN DEFAULT true,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
+
+        # Verificar se existe usuário admin
+        result = conn.execute(
+            "SELECT COUNT(*) FROM tb_usuarios WHERE tipo_usuario = 'admin'"
+        ).fetchone()
+        if result[0] == 0:
+            # Criar usuário admin padrão (senha: admin123)
+            password_hash = bcrypt.generate_password_hash("admin123").decode("utf-8")
+            conn.execute(
+                """
+                INSERT INTO tb_usuarios (id, username, password_hash, nome_completo, tipo_usuario, ativo)
+                VALUES (nextval('seq_usuarios'), 'conjo', ?, 'Conjo', '123', true)
+            """,
+                [password_hash],
+            )
+            print("✓ Usuário admin padrão criado (username: admin, senha: admin123)")
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Erro ao inicializar tabela de usuários: {e}")
+        conn.close()
+
+
+def token_required(f):
+    """Decorator para proteger rotas que exigem autenticação"""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("Authorization")
+
+        if not token:
+            return jsonify({"message": "Token não fornecido"}), 401
+
+        try:
+            # Remove 'Bearer ' do token
+            if token.startswith("Bearer "):
+                token = token[7:]
+
+            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
+            current_user_id = data["user_id"]
+
+            # Buscar usuário no banco
+            conn = get_db_connection()
+            user = conn.execute(
+                "SELECT id, username, nome_completo, tipo_usuario, ativo FROM tb_usuarios WHERE id = ?",
+                [current_user_id],
+            ).fetchone()
+            conn.close()
+
+            if not user:
+                return jsonify({"message": "Usuário não encontrado"}), 401
+
+            if not user[4]:  # ativo
+                return jsonify({"message": "Usuário inativo"}), 401
+
+            # Adicionar informações do usuário ao request
+            request.current_user = {
+                "id": user[0],
+                "username": user[1],
+                "nome_completo": user[2],
+                "tipo_usuario": user[3],
+                "ativo": user[4],
+            }
+
+        except jwt.ExpiredSignatureError:
+            return jsonify({"message": "Token expirado"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"message": "Token inválido"}), 401
+        except Exception as e:
+            return jsonify({"message": f"Erro na autenticação: {str(e)}"}), 401
+
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def admin_required(f):
+    """Decorator para proteger rotas que exigem permissão de admin"""
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if (
+            not hasattr(request, "current_user")
+            or request.current_user["tipo_usuario"] != "admin"
+        ):
+            return (
+                jsonify(
+                    {"message": "Acesso negado. Requer permissão de administrador"}
+                ),
+                403,
+            )
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    """POST /login - Autenticar usuário"""
+    try:
+        data = request.json
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            return jsonify({"message": "Username e senha são obrigatórios"}), 400
+
+        conn = get_db_connection()
+        user = conn.execute(
+            "SELECT id, username, password_hash, nome_completo, tipo_usuario, ativo FROM tb_usuarios WHERE username = ?",
+            [username],
+        ).fetchone()
+        conn.close()
+
+        if not user:
+            return jsonify({"message": "Credenciais inválidas"}), 401
+
+        if not user[5]:  # ativo
+            return jsonify({"message": "Usuário inativo"}), 401
+
+        # Verificar senha
+        if not bcrypt.check_password_hash(user[2], password):
+            return jsonify({"message": "Credenciais inválidas"}), 401
+
+        # Gerar token JWT
+        token = jwt.encode(
+            {"user_id": user[0], "exp": datetime.utcnow() + timedelta(days=7)},
+            app.config["SECRET_KEY"],
+            algorithm="HS256",
+        )
+
+        return (
+            jsonify(
+                {
+                    "token": token,
+                    "user": {
+                        "id": user[0],
+                        "username": user[1],
+                        "nome_completo": user[3],
+                        "tipo_usuario": user[4],
+                    },
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/me", methods=["GET"])
+@token_required
+def get_current_user():
+    """GET /me - Retorna informações do usuário logado"""
+    return jsonify({"user": request.current_user}), 200
+
+
+# ==================== ROTAS PÚBLICAS ====================
+
+
 @app.route("/health", methods=["GET"])
 def health():
     """Endpoint de health check"""
@@ -35,9 +227,10 @@ def health():
 
 
 @app.route("/normas", methods=["GET"])
+@token_required
 def get_normas():
     """
-    GET /normas - Lista todas as normas com paginação e filtros
+    GET /normas - Lista todas as normas com paginação e filtros (requer autenticação)
     Query params:
     - page: número da página (padrão: 1)
     - per_page: itens por página (padrão: 20)
@@ -140,8 +333,9 @@ def get_normas():
 
 
 @app.route("/normas/<int:norma_id>", methods=["GET"])
+@token_required
 def get_norma(norma_id):
-    """GET /normas/:id - Busca uma norma específica por ID"""
+    """GET /normas/:id - Busca uma norma específica por ID (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -165,8 +359,9 @@ def get_norma(norma_id):
 
 
 @app.route("/normas", methods=["POST"])
+@token_required
 def create_norma():
-    """POST /normas - Cria uma nova norma"""
+    """POST /normas - Cria uma nova norma (requer autenticação)"""
     try:
         data = request.get_json()
 
@@ -225,8 +420,9 @@ def create_norma():
 
 
 @app.route("/normas/<int:norma_id>", methods=["PUT"])
+@token_required
 def update_norma(norma_id):
-    """PUT /normas/:id - Atualiza uma norma existente"""
+    """PUT /normas/:id - Atualiza uma norma existente (requer autenticação)"""
     try:
         data = request.get_json()
 
@@ -265,8 +461,9 @@ def update_norma(norma_id):
 
 
 @app.route("/normas/<int:norma_id>", methods=["DELETE"])
+@token_required
 def delete_norma(norma_id):
-    """DELETE /normas/:id - Remove uma norma"""
+    """DELETE /normas/:id - Remove uma norma (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -289,8 +486,9 @@ def delete_norma(norma_id):
 
 
 @app.route("/normas/stats", methods=["GET"])
+@token_required
 def get_stats():
-    """GET /normas/stats - Retorna estatísticas da base de dados"""
+    """GET /normas/stats - Retorna estatísticas da base de dados (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -336,8 +534,9 @@ def get_stats():
 
 
 @app.route("/normas/filtros/valores", methods=["GET"])
+@token_required
 def get_filtros_valores():
-    """GET /normas/filtros/valores - Retorna os valores distintos dos campos de filtro"""
+    """GET /normas/filtros/valores - Retorna os valores distintos dos campos de filtro (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -383,8 +582,9 @@ def get_filtros_valores():
 
 
 @app.route("/analytics/origem", methods=["GET"])
+@token_required
 def get_analytics_origem():
-    """GET /analytics/origem - Retorna quantidade de leis por origem de dado"""
+    """GET /analytics/origem - Retorna quantidade de leis por origem de dado (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -408,8 +608,9 @@ def get_analytics_origem():
 
 
 @app.route("/analytics/origem-publicacao", methods=["GET"])
+@token_required
 def get_analytics_origem_publicacao():
-    """GET /analytics/origem-publicacao - Retorna quantidade por origem de publicação"""
+    """GET /analytics/origem-publicacao - Retorna quantidade por origem de publicação (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -433,8 +634,9 @@ def get_analytics_origem_publicacao():
 
 
 @app.route("/analytics/municipio", methods=["GET"])
+@token_required
 def get_analytics_municipio():
-    """GET /analytics/municipio - Retorna quantidade por município (top 20)"""
+    """GET /analytics/municipio - Retorna quantidade por município (top 20) (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -459,8 +661,9 @@ def get_analytics_municipio():
 
 
 @app.route("/analytics/sincronizacao", methods=["GET"])
+@token_required
 def get_analytics_sincronizacao():
-    """GET /analytics/sincronizacao - Retorna última data de ingestão por origem"""
+    """GET /analytics/sincronizacao - Retorna última data de ingestão por origem (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -484,8 +687,9 @@ def get_analytics_sincronizacao():
 
 
 @app.route("/analytics/volume-dia", methods=["GET"])
+@token_required
 def get_analytics_volume_dia():
-    """GET /analytics/volume-dia - Retorna volume de publicações por dia (últimos 90 dias)"""
+    """GET /analytics/volume-dia - Retorna volume de publicações por dia (últimos 90 dias) (requer autenticação)"""
     try:
         conn = get_db_connection()
 
@@ -512,8 +716,9 @@ def get_analytics_volume_dia():
 
 
 @app.route("/management-systems", methods=["GET"])
+@token_required
 def get_management_systems():
-    """GET /management-systems - Lista todos os sistemas de gestão únicos"""
+    """GET /management-systems - Lista todos os sistemas de gestão únicos (requer autenticação)"""
     try:
         conn = get_management_db_connection()
 
@@ -537,8 +742,9 @@ def get_management_systems():
 
 
 @app.route("/management-systems/<int:norm_id>", methods=["GET"])
+@token_required
 def get_management_systems_by_norm(norm_id):
-    """GET /management-systems/:norm_id - Retorna classificações de uma norma específica"""
+    """GET /management-systems/:norm_id - Retorna classificações de uma norma específica (requer autenticação)"""
     try:
         conn = get_management_db_connection()
 
@@ -568,8 +774,9 @@ def get_management_systems_by_norm(norm_id):
 
 
 @app.route("/analytics/management-systems", methods=["GET"])
+@token_required
 def get_analytics_management_systems():
-    """GET /analytics/management-systems - Retorna estatísticas por sistema de gestão"""
+    """GET /analytics/management-systems - Retorna estatísticas por sistema de gestão (requer autenticação)"""
     try:
         conn = get_management_db_connection()
 
@@ -608,8 +815,9 @@ def get_analytics_management_systems():
 
 
 @app.route("/normas/<int:norma_id>/management-systems", methods=["GET"])
+@token_required
 def get_norma_with_management_systems(norma_id):
-    """GET /normas/:id/management-systems - Retorna norma com suas classificações"""
+    """GET /normas/:id/management-systems - Retorna norma com suas classificações (requer autenticação)"""
     try:
         # Buscar norma
         conn_normas = get_db_connection()
@@ -656,9 +864,10 @@ def get_norma_with_management_systems(norma_id):
 
 
 @app.route("/normas/sync-aplicavel", methods=["POST"])
+@token_required
 def sync_aplicavel():
     """
-    POST /normas/sync-aplicavel - Sincroniza a flag 'aplicavel' baseada nas classificações
+    POST /normas/sync-aplicavel - Sincroniza a flag 'aplicavel' baseada nas classificações (requer autenticação)
 
     Faz JOIN entre management_systems_classifications e tb_normas_consolidadas
     e marca como aplicável as normas que têm classification = true
@@ -733,9 +942,10 @@ def sync_aplicavel():
 
 
 @app.route("/normas/aplicaveis", methods=["GET"])
+@token_required
 def get_normas_aplicaveis():
     """
-    GET /normas/aplicaveis - Lista normas marcadas como aplicáveis
+    GET /normas/aplicaveis - Lista normas marcadas como aplicáveis (requer autenticação)
     Query params: mesmos de GET /normas + filtro por aplicavel
     """
     try:
@@ -837,12 +1047,12 @@ def init_aprovacao_table():
 
 
 @app.route("/normas/<int:norma_id>/aprovacao", methods=["POST"])
+@token_required
 def registrar_aprovacao(norma_id):
     """
-    POST /normas/:id/aprovacao - Registra aprovação ou recusa de uma norma
+    POST /normas/:id/aprovacao - Registra aprovação ou recusa de uma norma (requer autenticação)
     Body: {
         "status": "aprovado" | "recusado",
-        "solicitante": "Nome da pessoa",
         "observacao": "Observação opcional"
     }
     """
@@ -853,8 +1063,10 @@ def registrar_aprovacao(norma_id):
             return jsonify({"error": "Dados não fornecidos"}), 400
 
         status = data.get("status")
-        solicitante = data.get("solicitante")
         observacao = data.get("observacao", "")
+
+        # Usar nome do usuário logado
+        solicitante = request.current_user["nome_completo"]
 
         # Validações
         if not status or status not in ["aprovado", "recusado"]:
@@ -862,9 +1074,6 @@ def registrar_aprovacao(norma_id):
                 jsonify({"error": "Status inválido. Use 'aprovado' ou 'recusado'"}),
                 400,
             )
-
-        if not solicitante or not solicitante.strip():
-            return jsonify({"error": "Nome do solicitante é obrigatório"}), 400
 
         conn = get_db_connection()
 
@@ -1006,7 +1215,313 @@ def get_aprovacoes_stats():
         return jsonify({"error": str(e)}), 500
 
 
+# ==================== GERENCIAMENTO DE USUÁRIOS (ADMIN) ====================
+
+
+@app.route("/usuarios", methods=["GET"])
+@token_required
+@admin_required
+def get_usuarios():
+    """GET /usuarios - Lista todos os usuários (apenas admin)"""
+    try:
+        conn = get_db_connection()
+        usuarios = conn.execute(
+            """
+            SELECT id, username, nome_completo, tipo_usuario, ativo, data_criacao
+            FROM tb_usuarios
+            ORDER BY data_criacao DESC
+        """
+        ).fetchall()
+        conn.close()
+
+        return (
+            jsonify(
+                {
+                    "usuarios": [
+                        {
+                            "id": u[0],
+                            "username": u[1],
+                            "nome_completo": u[2],
+                            "tipo_usuario": u[3],
+                            "ativo": u[4],
+                            "data_criacao": u[5].isoformat() if u[5] else None,
+                        }
+                        for u in usuarios
+                    ]
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/usuarios", methods=["POST"])
+@token_required
+@admin_required
+def create_usuario():
+    """POST /usuarios - Criar novo usuário (apenas admin)"""
+    try:
+        data = request.json
+        username = data.get("username")
+        password = data.get("password")
+        nome_completo = data.get("nome_completo")
+        tipo_usuario = data.get("tipo_usuario", "user")
+
+        if not username or not password or not nome_completo:
+            return (
+                jsonify(
+                    {"message": "Username, senha e nome completo são obrigatórios"}
+                ),
+                400,
+            )
+
+        if tipo_usuario not in ["admin", "user"]:
+            return jsonify({"message": "Tipo de usuário inválido"}), 400
+
+        # Verificar se username já existe
+        conn = get_db_connection()
+        existing = conn.execute(
+            "SELECT id FROM tb_usuarios WHERE username = ?", [username]
+        ).fetchone()
+
+        if existing:
+            conn.close()
+            return jsonify({"message": "Username já existe"}), 400
+
+        # Criar usuário
+        password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
+        conn.execute(
+            """
+            INSERT INTO tb_usuarios (id, username, password_hash, nome_completo, tipo_usuario, ativo)
+            VALUES (nextval('seq_usuarios'), ?, ?, ?, ?, true)
+        """,
+            [username, password_hash, nome_completo, tipo_usuario],
+        )
+
+        conn.commit()
+
+        # Buscar usuário criado
+        user = conn.execute(
+            """
+            SELECT id, username, nome_completo, tipo_usuario, ativo, data_criacao
+            FROM tb_usuarios WHERE username = ?
+        """,
+            [username],
+        ).fetchone()
+
+        conn.close()
+
+        return (
+            jsonify(
+                {
+                    "message": "Usuário criado com sucesso",
+                    "usuario": {
+                        "id": user[0],
+                        "username": user[1],
+                        "nome_completo": user[2],
+                        "tipo_usuario": user[3],
+                        "ativo": user[4],
+                        "data_criacao": user[5].isoformat() if user[5] else None,
+                    },
+                }
+            ),
+            201,
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/usuarios/<int:user_id>", methods=["PUT"])
+@token_required
+@admin_required
+def update_usuario(user_id):
+    """PUT /usuarios/:id - Atualizar usuário (apenas admin)"""
+    try:
+        data = request.json
+        conn = get_db_connection()
+
+        # Verificar se usuário existe
+        user = conn.execute(
+            "SELECT id FROM tb_usuarios WHERE id = ?", [user_id]
+        ).fetchone()
+        if not user:
+            conn.close()
+            return jsonify({"message": "Usuário não encontrado"}), 404
+
+        # Construir query de atualização
+        updates = []
+        params = []
+
+        if "nome_completo" in data:
+            updates.append("nome_completo = ?")
+            params.append(data["nome_completo"])
+
+        if "tipo_usuario" in data:
+            if data["tipo_usuario"] not in ["admin", "user"]:
+                conn.close()
+                return jsonify({"message": "Tipo de usuário inválido"}), 400
+            updates.append("tipo_usuario = ?")
+            params.append(data["tipo_usuario"])
+
+        if "ativo" in data:
+            updates.append("ativo = ?")
+            params.append(data["ativo"])
+
+        if "password" in data and data["password"]:
+            password_hash = bcrypt.generate_password_hash(data["password"]).decode(
+                "utf-8"
+            )
+            updates.append("password_hash = ?")
+            params.append(password_hash)
+
+        if not updates:
+            conn.close()
+            return jsonify({"message": "Nenhum campo para atualizar"}), 400
+
+        params.append(user_id)
+        query = f"UPDATE tb_usuarios SET {', '.join(updates)} WHERE id = ?"
+
+        conn.execute(query, params)
+        conn.commit()
+
+        # Buscar usuário atualizado
+        updated_user = conn.execute(
+            """
+            SELECT id, username, nome_completo, tipo_usuario, ativo, data_criacao
+            FROM tb_usuarios WHERE id = ?
+        """,
+            [user_id],
+        ).fetchone()
+
+        conn.close()
+
+        return (
+            jsonify(
+                {
+                    "message": "Usuário atualizado com sucesso",
+                    "usuario": {
+                        "id": updated_user[0],
+                        "username": updated_user[1],
+                        "nome_completo": updated_user[2],
+                        "tipo_usuario": updated_user[3],
+                        "ativo": updated_user[4],
+                        "data_criacao": (
+                            updated_user[5].isoformat() if updated_user[5] else None
+                        ),
+                    },
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/usuarios/<int:user_id>", methods=["DELETE"])
+@token_required
+@admin_required
+def delete_usuario(user_id):
+    """DELETE /usuarios/:id - Deletar usuário (apenas admin)"""
+    try:
+        # Não permitir deletar o próprio usuário
+        if request.current_user["id"] == user_id:
+            return (
+                jsonify({"message": "Não é possível deletar seu próprio usuário"}),
+                400,
+            )
+
+        conn = get_db_connection()
+
+        # Verificar se usuário existe
+        user = conn.execute(
+            "SELECT id FROM tb_usuarios WHERE id = ?", [user_id]
+        ).fetchone()
+        if not user:
+            conn.close()
+            return jsonify({"message": "Usuário não encontrado"}), 404
+
+        # Deletar usuário
+        conn.execute("DELETE FROM tb_usuarios WHERE id = ?", [user_id])
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Usuário deletado com sucesso"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/usuarios/<int:user_id>/aprovacoes", methods=["GET"])
+@token_required
+@admin_required
+def get_usuario_aprovacoes(user_id):
+    """GET /usuarios/:id/aprovacoes - Lista aprovações de um usuário (apenas admin)"""
+    try:
+        conn = get_db_connection()
+
+        # Verificar se usuário existe
+        user = conn.execute(
+            "SELECT id, nome_completo FROM tb_usuarios WHERE id = ?", [user_id]
+        ).fetchone()
+
+        if not user:
+            conn.close()
+            return jsonify({"message": "Usuário não encontrado"}), 404
+
+        # Buscar aprovações
+        aprovacoes = conn.execute(
+            """
+            SELECT 
+                a.id,
+                a.norma_id,
+                a.status,
+                a.solicitante,
+                a.data_registro,
+                a.observacao,
+                n.numero_norma,
+                n.titulo_da_norma
+            FROM tb_normas_aprovacoes a
+            LEFT JOIN tb_normas_consolidadas n ON a.norma_id = n.id
+            WHERE a.solicitante = ?
+            ORDER BY a.data_registro DESC
+        """,
+            [user[1]],
+        ).fetchall()  # Busca pelo nome_completo
+
+        conn.close()
+
+        return (
+            jsonify(
+                {
+                    "usuario": {"id": user[0], "nome_completo": user[1]},
+                    "aprovacoes": [
+                        {
+                            "id": a[0],
+                            "norma_id": a[1],
+                            "status": a[2],
+                            "solicitante": a[3],
+                            "data_registro": a[4].isoformat() if a[4] else None,
+                            "observacao": a[5],
+                            "numero_norma": a[6],
+                            "titulo_da_norma": a[7],
+                        }
+                        for a in aprovacoes
+                    ],
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
-    # Inicializar tabela de aprovações
+    # Inicializar tabelas
+    init_usuarios_table()
     init_aprovacao_table()
     app.run(host="0.0.0.0", debug=True, port=5001)

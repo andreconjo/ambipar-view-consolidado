@@ -357,7 +357,6 @@ export default function NormasPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAprovacaoModalOpen, setIsAprovacaoModalOpen] = useState(false);
   const [aprovacaoStatus, setAprovacaoStatus] = useState<'aprovado' | 'recusado' | null>(null);
-  const [solicitanteNome, setSolicitanteNome] = useState('');
   const [pageSize, setPageSize] = useState(20);
   const [pageInput, setPageInput] = useState('1');
 
@@ -409,20 +408,17 @@ export default function NormasPage() {
   }, []);
 
   const handleConfirmarAprovacao = useCallback(async () => {
-    if (!selectedNorma || !aprovacaoStatus || !solicitanteNome.trim()) {
-      toast.error('Por favor, preencha o nome do solicitante');
+    if (!selectedNorma || !aprovacaoStatus) {
       return;
     }
 
     try {
       await normasService.registrarAprovacao(selectedNorma.id, {
         status: aprovacaoStatus,
-        solicitante: solicitanteNome.trim(),
       });
       
       toast.success(`Norma ${aprovacaoStatus === 'aprovado' ? 'aprovada' : 'recusada'} com sucesso!`);
       setIsAprovacaoModalOpen(false);
-      setSolicitanteNome('');
       setSelectedNorma(null);
       setAprovacaoStatus(null);
       await refetch();
@@ -430,7 +426,7 @@ export default function NormasPage() {
       console.error('Erro ao registrar aprovação:', error);
       toast.error('Erro ao registrar aprovação');
     }
-  }, [selectedNorma, aprovacaoStatus, solicitanteNome, refetch]);
+  }, [selectedNorma, aprovacaoStatus, refetch]);
 
   const deleteMutation = useMutation({
     mutationFn: normasService.deleteNorma,
@@ -578,28 +574,19 @@ export default function NormasPage() {
                   </p>
                 </div>
 
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Seu nome *
-                  </label>
-                  <Input
-                    value={solicitanteNome}
-                    onChange={(e) => setSolicitanteNome(e.target.value)}
-                    placeholder="Digite seu nome completo"
-                    autoFocus
-                    className="text-base"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Seu nome será registrado no histórico desta norma
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600 mb-6">
+                  Você tem certeza que deseja{' '}
+                  <strong className={aprovacaoStatus === 'aprovado' ? 'text-green-600' : 'text-red-600'}>
+                    {aprovacaoStatus === 'aprovado' ? 'aprovar' : 'recusar'}
+                  </strong>
+                  {' '}esta norma? Esta ação ficará registrada em seu nome no histórico.
+                </p>
 
                 <div className="flex gap-3 justify-end">
                   <Button
                     variant="ghost"
                     onClick={() => {
                       setIsAprovacaoModalOpen(false);
-                      setSolicitanteNome('');
                       setSelectedNorma(null);
                       setAprovacaoStatus(null);
                     }}
@@ -609,7 +596,6 @@ export default function NormasPage() {
                   <Button
                     onClick={handleConfirmarAprovacao}
                     variant={aprovacaoStatus === 'aprovado' ? 'secondary' : 'danger'}
-                    disabled={!solicitanteNome.trim()}
                   >
                     {aprovacaoStatus === 'aprovado' ? '✓ Confirmar Aprovação' : '✗ Confirmar Recusa'}
                   </Button>
