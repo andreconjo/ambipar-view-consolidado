@@ -27,9 +27,16 @@ interface FiltersProps {
   onNewNorma: () => void;
   onSyncAplicavel: () => void;
   isSyncing: boolean;
+  filtrosValores?: {
+    tipo_norma: string[];
+    divisao_politica: string[];
+    status_vigencia: string[];
+    origem_publicacao: string[];
+    origem_dado: string[];
+  };
 }
 
-const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onFilterChange, onNewNorma, onSyncAplicavel, isSyncing }: FiltersProps) => (
+const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onFilterChange, onNewNorma, onSyncAplicavel, isSyncing, filtrosValores }: FiltersProps) => (
   <Card className="mb-6">
     <div className="space-y-6">
       {/* Seção de Busca e Ações */}
@@ -105,10 +112,9 @@ const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onF
             className="w-full"
           >
             <option value="">Todos os tipos</option>
-            <option value="lei">Lei</option>
-            <option value="decreto">Decreto</option>
-            <option value="portaria">Portaria</option>
-            <option value="resolucao">Resolução</option>
+            {filtrosValores?.tipo_norma?.map((tipo) => (
+              <option key={tipo} value={tipo}>{tipo}</option>
+            ))}
           </Select>
         </div>
 
@@ -121,9 +127,9 @@ const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onF
             className="w-full"
           >
             <option value="">Todos os status</option>
-            <option value="vigente">Vigente</option>
-            <option value="revogada">Revogada</option>
-            <option value="suspensa">Suspensa</option>
+            {filtrosValores?.status_vigencia?.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
           </Select>
         </div>
 
@@ -136,9 +142,9 @@ const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onF
             className="w-full"
           >
             <option value="">Todas as divisões</option>
-            <option value="federal">Federal</option>
-            <option value="estadual">Estadual</option>
-            <option value="municipal">Municipal</option>
+            {filtrosValores?.divisao_politica?.map((divisao) => (
+              <option key={divisao} value={divisao}>{divisao}</option>
+            ))}
           </Select>
         </div>
 
@@ -167,9 +173,9 @@ const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onF
             className="w-full"
           >
             <option value="">Todas as origens</option>
-            <option value="dou">DOU</option>
-            <option value="doe">DOE</option>
-            <option value="dom">DOM</option>
+            {filtrosValores?.origem_publicacao?.map((origem) => (
+              <option key={origem} value={origem}>{origem}</option>
+            ))}
           </Select>
         </div>
 
@@ -182,9 +188,9 @@ const Filters = memo(({ searchInput, filters, onSearchInputChange, onSearch, onF
             className="w-full"
           >
             <option value="">Todas as origens</option>
-            <option value="api">API</option>
-            <option value="manual">Manual</option>
-            <option value="importacao">Importação</option>
+            {filtrosValores?.origem_dado?.map((origem) => (
+              <option key={origem} value={origem}>{origem}</option>
+            ))}
           </Select>
         </div>
 
@@ -366,6 +372,12 @@ export default function NormasPage() {
     enabled: !USE_MOCK_DATA,
   });
 
+  const { data: filtrosValores } = useQuery({
+    queryKey: ['filtros-valores'],
+    queryFn: () => normasService.getFiltrosValores(),
+    enabled: !USE_MOCK_DATA,
+  });
+
   const normas = USE_MOCK_DATA ? mockNormas : (data?.data || []);
   const pagination = USE_MOCK_DATA ? { page: 1, per_page: 20, total: mockNormas.length, pages: 1 } : data?.pagination;
 
@@ -467,6 +479,7 @@ export default function NormasPage() {
           }}
           onSyncAplicavel={handleSyncAplicavel}
           isSyncing={isSyncing}
+          filtrosValores={filtrosValores}
         />
 
         {isLoading && !USE_MOCK_DATA ? (
