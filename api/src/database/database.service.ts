@@ -109,6 +109,28 @@ export class DatabaseService implements OnModuleInit {
           classification_injection TIMESTAMP
         )
       `);
+
+      // Criar tabela de crawlers manual no Databricks
+      try {
+        await this.executeDatabricks(`
+          CREATE TABLE IF NOT EXISTS default.tb_crawlers_manual (
+            id BIGINT GENERATED ALWAYS AS IDENTITY,
+            fonte VARCHAR(500) NOT NULL,
+            periodicidade VARCHAR(100),
+            pais VARCHAR(100),
+            estado VARCHAR(100),
+            cidade VARCHAR(200),
+            prioridade INT,
+            usuario_id INT,
+            data_criacao TIMESTAMP,
+            data_atualizacao TIMESTAMP,
+            ativo BOOLEAN
+          )
+        `);
+        this.logger.log('Crawlers manual table initialized');
+      } catch (error) {
+        this.logger.warn('Could not create crawlers manual table (may already exist or Databricks not connected)');
+      }
       
       this.logger.log('Database tables initialized');
     } catch (err) {
@@ -367,6 +389,43 @@ export class DatabaseService implements OnModuleInit {
     databricksSql = databricksSql.replace(/FROM\s+tb_health_scrappers/gi, 'FROM default.tb_health_scrappers');
     databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_health_scrappers/gi, 'INSERT INTO default.tb_health_scrappers');
     databricksSql = databricksSql.replace(/UPDATE\s+tb_health_scrappers/gi, 'UPDATE default.tb_health_scrappers');
+    
+    return this.executeDatabricks(databricksSql);
+  }
+
+  // Métodos para queries de crawlers manual (usa Azure Databricks)
+  async queryCrawlersManual<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+    this.logger.debug(`Query crawlers manual: ${sql} with params: ${JSON.stringify(params)}`);
+    
+    // Substituir placeholders ? por valores reais para Databricks
+    let databricksSql = sql;
+    params.forEach((param) => {
+      const value = typeof param === 'string' ? `'${param}'` : param;
+      databricksSql = databricksSql.replace('?', String(value));
+    });
+    
+    // Garantir que usa o schema correto: default
+    databricksSql = databricksSql.replace(/FROM\s+tb_crawlers_manual/gi, 'FROM default.tb_crawlers_manual');
+    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_crawlers_manual/gi, 'INSERT INTO default.tb_crawlers_manual');
+    databricksSql = databricksSql.replace(/UPDATE\s+tb_crawlers_manual/gi, 'UPDATE default.tb_crawlers_manual');
+    
+    return this.queryDatabricks<T>(databricksSql);
+  }
+
+  async executeCrawlersManual(sql: string, params: any[] = []): Promise<void> {
+    this.logger.debug(`Execute crawlers manual: ${sql} with params: ${JSON.stringify(params)}`);
+    
+    // Substituir placeholders ? por valores reais para Databricks
+    let databricksSql = sql;
+    params.forEach((param) => {
+      const value = typeof param === 'string' ? `'${param}'` : param;
+      databricksSql = databricksSql.replace('?', String(value));
+    });
+    
+    // Garantir que usa o schema correto: default
+    databricksSql = databricksSql.replace(/FROM\s+tb_crawlers_manual/gi, 'FROM default.tb_crawlers_manual');
+    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_crawlers_manual/gi, 'INSERT INTO default.tb_crawlers_manual');
+    databricksSql = databricksSql.replace(/UPDATE\s+tb_crawlers_manual/gi, 'UPDATE default.tb_crawlers_manual');
     
     return this.executeDatabricks(databricksSql);
   }

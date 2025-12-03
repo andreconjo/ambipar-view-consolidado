@@ -12,6 +12,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { ManagementSystemsModule } from './management-systems/management-systems.module';
 import { AzureSyncModule } from './azure-sync/azure-sync.module';
 import { ScrapersModule } from './scrapers/scrapers.module';
+import { CrawlersModule } from './crawlers/crawlers.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { HealthController } from './common/health.controller';
@@ -32,6 +33,7 @@ import { HealthController } from './common/health.controller';
     ManagementSystemsModule,
     AzureSyncModule,
     ScrapersModule,
+    CrawlersModule,
   ],
   controllers: [HealthController],
   providers: [

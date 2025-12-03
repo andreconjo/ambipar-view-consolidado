@@ -51,6 +51,12 @@ export default function Layout() {
                 >
                   Scrapers
                 </Link>
+                <Link
+                  to="/crawlers"
+                  className="px-4 py-2 text-sm font-medium text-white hover:bg-white/10 rounded-md transition-colors"
+                >
+                  Crawlers
+                </Link>
                 {isAdmin && (
                   <Link
                     to="/usuarios"
