@@ -1,0 +1,253 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
+import { PaginationResponse } from '../common/interfaces/pagination.interface';
+import { Norma, NormasFilterParams } from './dto/norma.dto';
+
+@Injectable()
+export class NormasService {
+  constructor(private databaseService: DatabaseService) {}
+
+  async findAll(
+    filters: NormasFilterParams,
+  ): Promise<PaginationResponse<Norma>> {
+    const page = filters.page || 1;
+    const per_page = Math.min(filters.per_page || 50, 100);
+    const offset = (page - 1) * per_page;
+
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (filters.tipo_norma) {
+      conditions.push('tipo_norma = ?');
+      params.push(filters.tipo_norma);
+    }
+
+    if (filters.status_vigencia) {
+      conditions.push('status_vigencia = ?');
+      params.push(filters.status_vigencia);
+    }
+
+    if (filters.divisao_politica) {
+      conditions.push('divisao_politica = ?');
+      params.push(filters.divisao_politica);
+    }
+
+    if (filters.origem_publicacao) {
+      conditions.push('origem_publicacao = ?');
+      params.push(filters.origem_publicacao);
+    }
+
+    if (filters.origem_dado) {
+      conditions.push('origem_dado = ?');
+      params.push(filters.origem_dado);
+    }
+
+    if (filters.aplicavel) {
+      const aplicavelBool = filters.aplicavel === 'true';
+      conditions.push('aplicavel = ?');
+      params.push(aplicavelBool);
+    }
+
+    if (filters.search) {
+      conditions.push('(ementa ILIKE ? OR numero_norma ILIKE ?)');
+      params.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countQuery = `SELECT COUNT(*) as total FROM tb_normas_consolidadas ${whereClause}`;
+    const countResult = await this.databaseService.queryNormas(countQuery, params);
+    const total = Number(countResult[0].total);
+
+    const dataQuery = `
+      SELECT * FROM tb_normas_consolidadas 
+      ${whereClause}
+      ORDER BY data_publicacao DESC, numero_norma DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const data = await this.databaseService.queryNormas<Norma>(dataQuery, [
+      ...params,
+      per_page,
+      offset,
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        per_page,
+        total,
+        pages: Math.ceil(total / per_page),
+      },
+    };
+  }
+
+  async findOne(id: number): Promise<Norma> {
+    const normas = await this.databaseService.queryNormas<Norma>(
+      'SELECT * FROM tb_normas_consolidadas WHERE id = ?',
+      [id],
+    );
+
+    if (normas.length === 0) {
+      throw new NotFoundException(`Norma com ID ${id} não encontrada`);
+    }
+
+    return normas[0];
+  }
+
+  async getFiltrosValores() {
+    const [
+      tipoNorma,
+      statusVigencia,
+      divisaoPolitica,
+      origemPublicacao,
+      origemDado,
+    ] = await Promise.all([
+      this.databaseService.queryNormas(
+        'SELECT DISTINCT tipo_norma FROM tb_normas_consolidadas WHERE tipo_norma IS NOT NULL ORDER BY tipo_norma',
+      ),
+      this.databaseService.queryNormas(
+        'SELECT DISTINCT status_vigencia FROM tb_normas_consolidadas WHERE status_vigencia IS NOT NULL ORDER BY status_vigencia',
+      ),
+      this.databaseService.queryNormas(
+        'SELECT DISTINCT divisao_politica FROM tb_normas_consolidadas WHERE divisao_politica IS NOT NULL ORDER BY divisao_politica',
+      ),
+      this.databaseService.queryNormas(
+        'SELECT DISTINCT origem_publicacao FROM tb_normas_consolidadas WHERE origem_publicacao IS NOT NULL ORDER BY origem_publicacao',
+      ),
+      this.databaseService.queryNormas(
+        'SELECT DISTINCT origem_dado FROM tb_normas_consolidadas WHERE origem_dado IS NOT NULL ORDER BY origem_dado',
+      ),
+    ]);
+
+    return {
+      tipo_norma: tipoNorma.map((r: any) => r.tipo_norma),
+      status_vigencia: statusVigencia.map((r: any) => r.status_vigencia),
+      divisao_politica: divisaoPolitica.map((r: any) => r.divisao_politica),
+      origem_publicacao: origemPublicacao.map((r: any) => r.origem_publicacao),
+      origem_dado: origemDado.map((r: any) => r.origem_dado),
+    };
+  }
+
+  async syncAplicavel(): Promise<{ message: string; updated: number }> {
+    // Resetar todas para false e NULL primeiro (igual ao Flask)
+    await this.databaseService.executeNormas(
+      'UPDATE tb_normas_consolidadas SET aplicavel = false, sistema_gestao = NULL',
+      []
+    );
+
+    // Buscar normas com classification = true e seus sistemas de gestão (usando norm_id e mngm_sys como no Flask)
+    const classificadas = await this.databaseService.queryManagement(`
+      SELECT norm_id, mngm_sys
+      FROM management_systems_classifications
+      WHERE classification = true
+    `);
+
+    if (!classificadas || classificadas.length === 0) {
+      return {
+        message: 'Nenhuma norma classificada encontrada',
+        updated: 0,
+      };
+    }
+
+    // Agrupar sistemas de gestão por norma (caso uma norma tenha múltiplos sistemas)
+    const normasSistemas: Record<number, string[]> = {};
+    for (const row of classificadas) {
+      const normId = row.norm_id;
+      const mngmSys = row.mngm_sys;
+      
+      if (!normasSistemas[normId]) {
+        normasSistemas[normId] = [];
+      }
+      if (mngmSys && !normasSistemas[normId].includes(mngmSys)) {
+        normasSistemas[normId].push(mngmSys);
+      }
+    }
+
+    // Atualizar cada norma com seu(s) sistema(s) de gestão usando ID (igual ao Flask)
+    let totalAtualizadas = 0;
+    for (const [normId, sistemas] of Object.entries(normasSistemas)) {
+      // Juntar múltiplos sistemas com vírgula
+      const sistemasStr = sistemas.length > 0 ? sistemas.join(', ') : null;
+      
+      await this.databaseService.executeNormas(
+        `UPDATE tb_normas_consolidadas 
+         SET aplicavel = true, sistema_gestao = ? 
+         WHERE id = ?`,
+        [sistemasStr, Number(normId)]
+      );
+      totalAtualizadas++;
+    }
+
+    const result = await this.databaseService.queryNormas(
+      'SELECT COUNT(*) as count FROM tb_normas_consolidadas WHERE aplicavel = true',
+    );
+
+    return {
+      message: 'Sincronização concluída com sucesso',
+      updated: Number(result[0].count),
+    };
+  }
+
+  async findAplicaveis(
+    filters: NormasFilterParams,
+  ): Promise<PaginationResponse<Norma>> {
+    return this.findAll({ ...filters, aplicavel: 'true' });
+  }
+
+  async getStats() {
+    const totalNormas = await this.databaseService.queryNormas(
+      'SELECT COUNT(*) as count FROM tb_normas_consolidadas',
+    );
+
+    const porTipo = await this.databaseService.queryNormas(
+      `SELECT tipo_norma, COUNT(*) as count 
+       FROM tb_normas_consolidadas 
+       WHERE tipo_norma IS NOT NULL
+       GROUP BY tipo_norma 
+       ORDER BY count DESC`,
+    );
+
+    const porOrgao = await this.databaseService.queryNormas(
+      `SELECT orgao_emissor, COUNT(*) as count 
+       FROM tb_normas_consolidadas 
+       WHERE orgao_emissor IS NOT NULL
+       GROUP BY orgao_emissor 
+       ORDER BY count DESC 
+       LIMIT 10`,
+    );
+
+    const porStatus = await this.databaseService.queryNormas(
+      `SELECT status_vigencia, COUNT(*) as count 
+       FROM tb_normas_consolidadas 
+       WHERE status_vigencia IS NOT NULL
+       GROUP BY status_vigencia`,
+    );
+
+    return {
+      total_normas: Number(totalNormas[0].count),
+      por_tipo: porTipo.map(r => ({...r, count: Number(r.count)})),
+      por_orgao: porOrgao.map(r => ({...r, count: Number(r.count)})),
+      por_status: porStatus.map(r => ({...r, count: Number(r.count)})),
+    };
+  }
+
+  async findOneWithManagementSystems(id: number) {
+    const norma = await this.findOne(id);
+
+    const classifications = await this.databaseService.queryManagement(
+      `SELECT *
+       FROM management_systems_classifications
+       WHERE norm_id = ?
+       ORDER BY classification_injection DESC`,
+      [id],
+    );
+
+    return {
+      ...norma,
+      management_systems_classifications: classifications,
+    };
+  }
+}

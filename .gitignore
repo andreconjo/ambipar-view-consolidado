@@ -25,6 +25,24 @@ venv/
 env/
 ENV/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# NestJS
+/api/dist/
+/api/node_modules/
+/api/.pnpm-store/
+
+# Frontend (React + Vite)
+/frontend/dist/
+/frontend/node_modules/
+/frontend/.pnpm-store/
+
 # IDE
 .vscode/
 .idea/
@@ -35,14 +53,19 @@ ENV/
 # Environment variables
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
+/api/data/
 
 # Logs
 *.log
+logs/
 
 # OS
 .DS_Store
@@ -54,7 +77,7 @@ Thumbs.db
 # Cache
 .cache/
 
-# Markdown files
-*.md
+# Markdown files (exceto README e documentação importante)
+# *.md
 
 *.zip

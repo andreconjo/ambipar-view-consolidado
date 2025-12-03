@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import NormasPage from './pages/NormasPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import UsuariosPage from './pages/UsuariosPage';
+import ScrapersPage from './pages/ScrapersPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +76,7 @@ function App() {
             >
               <Route path="/normas" element={<NormasPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/scrapers" element={<ScrapersPage />} />
               
               {/* Rota apenas para admin */}
               <Route
