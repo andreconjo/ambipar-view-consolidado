@@ -63,7 +63,10 @@ export class NormasService {
     const dataQuery = `
       SELECT * FROM tb_normas_consolidadas 
       ${whereClause}
-      ORDER BY data_publicacao DESC, numero_norma DESC
+      ORDER BY 
+        CASE WHEN data_publicacao IS NULL THEN 1 ELSE 0 END,
+        data_publicacao DESC,
+        id DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -249,5 +252,83 @@ export class NormasService {
       ...norma,
       management_systems_classifications: classifications,
     };
+  }
+
+  async create(normaData: any): Promise<{ message: string; id: number }> {
+    // Definir origem_dado como "SITE" se não fornecido (igual ao Flask)
+    if (!normaData.origem_dado) {
+      normaData.origem_dado = 'SITE';
+    }
+
+    // Converter strings vazias em NULL para campos de data e numéricos
+    const cleanedData = { ...normaData };
+    Object.keys(cleanedData).forEach((key) => {
+      if (cleanedData[key] === '') {
+        cleanedData[key] = null;
+      }
+    });
+
+    const columns = Object.keys(cleanedData);
+    const values = Object.values(cleanedData);
+    const placeholders = columns.map(() => '?').join(', ');
+
+    await this.databaseService.executeNormas(
+      `INSERT INTO tb_normas_consolidadas (${columns.join(', ')})
+       VALUES (${placeholders})`,
+      values,
+    );
+
+    // Buscar o ID inserido
+    const result = await this.databaseService.queryNormas(
+      'SELECT MAX(id) as id FROM tb_normas_consolidadas',
+    );
+    const newId = result[0].id;
+
+    return {
+      message: 'Norma criada com sucesso',
+      id: newId,
+    };
+  }
+
+  async update(
+    id: number,
+    normaData: any,
+  ): Promise<{ message: string }> {
+    // Verificar se a norma existe
+    await this.findOne(id);
+
+    // Converter strings vazias em NULL
+    const cleanedData = { ...normaData };
+    Object.keys(cleanedData).forEach((key) => {
+      if (cleanedData[key] === '') {
+        cleanedData[key] = null;
+      }
+    });
+
+    const updates = Object.keys(cleanedData)
+      .map((key) => `${key} = ?`)
+      .join(', ');
+    const values = [...Object.values(cleanedData), id];
+
+    await this.databaseService.executeNormas(
+      `UPDATE tb_normas_consolidadas
+       SET ${updates}
+       WHERE id = ?`,
+      values,
+    );
+
+    return { message: 'Norma atualizada com sucesso' };
+  }
+
+  async remove(id: number): Promise<{ message: string }> {
+    // Verificar se a norma existe
+    await this.findOne(id);
+
+    await this.databaseService.executeNormas(
+      'DELETE FROM tb_normas_consolidadas WHERE id = ?',
+      [id],
+    );
+
+    return { message: 'Norma removida com sucesso' };
   }
 }

@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   ParseIntPipe,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
@@ -20,30 +21,42 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.findOne(id);
+  async findAll() {
+    const usuarios = await this.usersService.findAll();
+    return { usuarios };
   }
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto) {
+    const usuario = await this.usersService.create(createUserDto);
+    return {
+      message: 'Usuário criado com sucesso',
+      usuario,
+    };
   }
 
   @Put(':id')
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    const usuario = await this.usersService.update(id, updateUserDto);
+    return {
+      message: 'Usuário atualizado com sucesso',
+      usuario,
+    };
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.remove(id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+  ) {
+    return this.usersService.remove(id, req.user.id);
+  }
+
+  @Get(':id/aprovacoes')
+  async getUserAprovacoes(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getUserAprovacoes(id);
   }
 }

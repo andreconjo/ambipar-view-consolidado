@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -51,6 +53,24 @@ export class NormasController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.normasService.findOne(id);
+  }
+
+  @Post()
+  create(@Body() normaData: any) {
+    return this.normasService.create(normaData);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() normaData: any,
+  ) {
+    return this.normasService.update(id, normaData);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.normasService.remove(id);
   }
 
   @Get(':id/management-systems')

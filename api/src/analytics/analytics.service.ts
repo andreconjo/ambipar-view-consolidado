@@ -5,134 +5,92 @@ import { DatabaseService } from '../database/database.service';
 export class AnalyticsService {
   constructor(private databaseService: DatabaseService) {}
 
-  async getTopMunicipios() {
+  async getOrigemDado() {
     const result = await this.databaseService.queryNormas(`
-      SELECT 
-        divisao_politica as municipio,
-        COUNT(*) as total
+      SELECT origem_dado as origem, COUNT(*) as total
       FROM tb_normas_consolidadas
-      WHERE divisao_politica IS NOT NULL 
-        AND divisao_politica != ''
-        AND divisao_politica != 'Brasil'
-      GROUP BY divisao_politica
+      WHERE origem_dado IS NOT NULL
+      GROUP BY origem_dado
       ORDER BY total DESC
-      LIMIT 20
     `);
-    return result.map(r => ({...r, total: Number(r.total)}));
+    return result.map((r) => ({ origem: r.origem, total: Number(r.total) }));
   }
 
   async getOrigemPublicacao() {
     const result = await this.databaseService.queryNormas(`
-      SELECT 
-        origem_publicacao,
-        COUNT(*) as total
+      SELECT origem_publicacao as origem, COUNT(*) as total
       FROM tb_normas_consolidadas
-      WHERE origem_publicacao IS NOT NULL AND origem_publicacao != ''
+      WHERE origem_publicacao IS NOT NULL
       GROUP BY origem_publicacao
+      ORDER BY total DESC
+    `);
+    return result.map((r) => ({ origem: r.origem, total: Number(r.total) }));
+  }
+
+  async getMunicipio() {
+    const result = await this.databaseService.queryNormas(`
+      SELECT divisao_politica as municipio, COUNT(*) as total
+      FROM tb_normas_consolidadas
+      WHERE divisao_politica IS NOT NULL
+      GROUP BY divisao_politica
       ORDER BY total DESC
       LIMIT 20
     `);
-    return result.map(r => ({...r, total: Number(r.total)}));
+    return result.map((r) => ({
+      municipio: r.municipio,
+      total: Number(r.total),
+    }));
   }
 
-  async getNormasPorAno() {
+  async getSincronizacao() {
+    const result = await this.databaseService.queryNormas(`
+      SELECT origem_dado as origem, MAX(lake_ingestao) as ultima_sincronizacao
+      FROM tb_normas_consolidadas
+      WHERE origem_dado IS NOT NULL AND lake_ingestao IS NOT NULL
+      GROUP BY origem_dado
+      ORDER BY ultima_sincronizacao DESC
+    `);
+    return result.map((r) => ({
+      origem: r.origem,
+      ultima_sincronizacao: r.ultima_sincronizacao,
+    }));
+  }
+
+  async getVolumeDia() {
     const result = await this.databaseService.queryNormas(`
       SELECT 
-        YEAR(data_publicacao) as ano,
+        CAST(data_publicacao AS DATE) as dia,
         COUNT(*) as total
       FROM tb_normas_consolidadas
       WHERE data_publicacao IS NOT NULL
-      GROUP BY YEAR(data_publicacao)
-      ORDER BY YEAR(data_publicacao) DESC
+        AND data_publicacao >= CURRENT_DATE - INTERVAL 90 DAY
+      GROUP BY CAST(data_publicacao AS DATE)
+      ORDER BY dia ASC
     `);
-    return result.map(r => ({...r, total: Number(r.total)}));
+    return result.map((r) => ({
+      dia: r.dia ? r.dia.toString() : null,
+      total: Number(r.total),
+    }));
   }
 
-  async getNormasPorTipo() {
-    const result = await this.databaseService.queryNormas(`
-      SELECT 
-        tipo_norma,
-        COUNT(*) as total
-      FROM tb_normas_consolidadas
-      WHERE tipo_norma IS NOT NULL AND tipo_norma != ''
-      GROUP BY tipo_norma
+  async getManagementSystems() {
+    const result = await this.databaseService.queryManagement(`
+      SELECT mngm_sys as sistema, 
+             COUNT(*) as total,
+             SUM(CASE WHEN classification = true THEN 1 ELSE 0 END) as classificadas,
+             AVG(dst) as avg_dst,
+             AVG(hst) as avg_hst
+      FROM management_systems_classifications
+      WHERE mngm_sys IS NOT NULL
+      GROUP BY mngm_sys
       ORDER BY total DESC
     `);
-    return result.map(r => ({...r, total: Number(r.total)}));
-  }
-
-  async getNormasPorStatus() {
-    const result = await this.databaseService.queryNormas(`
-      SELECT 
-        status_vigencia,
-        COUNT(*) as total
-      FROM tb_normas_consolidadas
-      WHERE status_vigencia IS NOT NULL AND status_vigencia != ''
-      GROUP BY status_vigencia
-      ORDER BY total DESC
-    `);
-    return result.map(r => ({...r, total: Number(r.total)}));
-  }
-
-  async getNormasPorOrigem() {
-    const result = await this.databaseService.queryNormas(`
-      SELECT 
-        origem_dado,
-        COUNT(*) as total
-      FROM tb_normas_consolidadas
-      WHERE origem_dado IS NOT NULL AND origem_dado != ''
-      GROUP BY origem_dado
-      ORDER BY total DESC
-    `);
-    return result.map(r => ({...r, total: Number(r.total)}));
-  }
-
-  async getAplicabilidade() {
-    const result = await this.databaseService.queryNormas(`
-      SELECT 
-        CASE 
-          WHEN aplicavel = true THEN 'Aplicável'
-          ELSE 'Não Aplicável'
-        END as status,
-        COUNT(*) as total
-      FROM tb_normas_consolidadas
-      GROUP BY aplicavel
-      ORDER BY total DESC
-    `);
-    return result.map(r => ({...r, total: Number(r.total)}));
-  }
-
-  async getResumoGeral() {
-    const [
-      totalNormas,
-      totalAplicaveis,
-      totalMunicipios,
-      totalTiposNorma,
-      totalOrigens,
-    ] = await Promise.all([
-      this.databaseService.queryNormas(
-        'SELECT COUNT(*) as total FROM tb_normas_consolidadas',
-      ),
-      this.databaseService.queryNormas(
-        'SELECT COUNT(*) as total FROM tb_normas_consolidadas WHERE aplicavel = true',
-      ),
-      this.databaseService.queryNormas(
-        "SELECT COUNT(DISTINCT divisao_politica) as total FROM tb_normas_consolidadas WHERE divisao_politica IS NOT NULL AND divisao_politica != '' AND divisao_politica != 'Brasil'",
-      ),
-      this.databaseService.queryNormas(
-        "SELECT COUNT(DISTINCT tipo_norma) as total FROM tb_normas_consolidadas WHERE tipo_norma IS NOT NULL AND tipo_norma != ''",
-      ),
-      this.databaseService.queryNormas(
-        "SELECT COUNT(DISTINCT origem_publicacao) as total FROM tb_normas_consolidadas WHERE origem_publicacao IS NOT NULL AND origem_publicacao != ''",
-      ),
-    ]);
-
-    return {
-      total_normas: Number(totalNormas[0].total),
-      total_aplicaveis: Number(totalAplicaveis[0].total),
-      total_municipios: Number(totalMunicipios[0].total),
-      total_tipos_norma: Number(totalTiposNorma[0].total),
-      total_origens: Number(totalOrigens[0].total),
-    };
+    return result.map((r: any) => ({
+      sistema: r.sistema,
+      total: Number(r.total),
+      classificadas: Number(r.classificadas),
+      avg_dst: r.avg_dst ? Math.round(Number(r.avg_dst) * 1000) / 1000 : 0,
+      avg_hst: r.avg_hst ? Math.round(Number(r.avg_hst) * 1000) / 1000 : 0,
+    }));
   }
 }

@@ -46,12 +46,21 @@ export class DatabaseService implements OnModuleInit {
 
   private async initializeDatabricks(): Promise<void> {
     try {
+      const host = this.configService.get<string>('databricks.serverHostname');
+      const path = this.configService.get<string>('databricks.httpPath');
+      const token = this.configService.get<string>('databricks.accessToken');
+
+      if (!host || !path || !token) {
+        this.logger.warn('Databricks connection parameters not configured - running in local mode');
+        return;
+      }
+
       this.databricksClient = new DBSQLClient();
       
       const connectionOptions = {
-        host: this.configService.get<string>('databricks.host'),
-        path: this.configService.get<string>('databricks.path'),
-        token: this.configService.get<string>('databricks.token'),
+        host,
+        path,
+        token,
       };
 
       this.databricksConnection = await this.databricksClient.connect(connectionOptions);
@@ -59,30 +68,30 @@ export class DatabaseService implements OnModuleInit {
       
       this.logger.log('Connected to Azure Databricks');
     } catch (error) {
-      this.logger.error('Failed to connect to Azure Databricks', error);
-      throw error;
+      this.logger.error('Failed to connect to Azure Databricks - falling back to local mode', error);
+      // Não lançar erro, apenas avisar
     }
   }
 
   private async initializeTables(): Promise<void> {
     try {
-      // Criar tabela principal de normas
+      // Criar tabela principal de normas (apenas para DuckDB local)
       await this.execute(`
         CREATE TABLE IF NOT EXISTS tb_normas_consolidadas (
           id INTEGER PRIMARY KEY,
-          tipo_norma VARCHAR,
-          numero_norma VARCHAR,
+          tipo_norma VARCHAR(255),
+          numero_norma VARCHAR(255),
           ano_publicacao INTEGER,
           ementa TEXT,
-          situacao VARCHAR,
-          status_vigencia VARCHAR,
-          divisao_politica VARCHAR,
-          origem_publicacao VARCHAR,
-          origem_dado VARCHAR,
-          link_norma VARCHAR,
+          situacao VARCHAR(255),
+          status_vigencia VARCHAR(255),
+          divisao_politica VARCHAR(255),
+          origem_publicacao VARCHAR(255),
+          origem_dado VARCHAR(255),
+          link_norma TEXT,
           data_publicacao DATE,
           aplicavel BOOLEAN,
-          sistema_gestao VARCHAR
+          sistema_gestao VARCHAR(500)
         )
       `);
 
@@ -93,7 +102,7 @@ export class DatabaseService implements OnModuleInit {
       await this.executeManagement(`
         CREATE TABLE IF NOT EXISTS management_systems_classifications (
           norm_id BIGINT,
-          mngm_sys VARCHAR,
+          mngm_sys VARCHAR(255),
           classification BOOLEAN,
           dst DOUBLE,
           hst DOUBLE,
@@ -178,9 +187,19 @@ export class DatabaseService implements OnModuleInit {
   // Métodos para queries no Azure Databricks (usuários e aprovações)
   async queryDatabricks<T = any>(sql: string): Promise<T[]> {
     this.logger.debug(`Query Databricks: ${sql}`);
+    
+    if (!this.databricksSession) {
+      this.logger.warn('Databricks not connected - using local database');
+      return this.query<T>(sql);
+    }
+    
     try {
       const operation = await this.databricksSession.executeStatement(sql);
       const result = await operation.fetchAll();
+      this.logger.debug(`Databricks result rows: ${result.length}`);
+      if (result.length > 0 && result.length <= 3) {
+        this.logger.debug(`Sample data: ${JSON.stringify(result[0])}`);
+      }
       return result as T[];
     } catch (error) {
       this.logger.error(`Databricks query error: ${error.message}`);
@@ -190,8 +209,16 @@ export class DatabaseService implements OnModuleInit {
 
   async executeDatabricks(sql: string): Promise<void> {
     this.logger.debug(`Execute Databricks: ${sql}`);
+    
+    if (!this.databricksSession) {
+      this.logger.warn('Databricks not connected - using local database');
+      return this.execute(sql);
+    }
+    
     try {
-      await this.databricksSession.executeStatement(sql);
+      const operation = await this.databricksSession.executeStatement(sql);
+      await operation.fetchAll(); // Garantir que a operação foi executada
+      this.logger.debug(`Execute Databricks completed successfully`);
     } catch (error) {
       this.logger.error(`Databricks execute error: ${error.message}`);
       throw error;

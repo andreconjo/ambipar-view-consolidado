@@ -7,14 +7,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class AnalyticsController {
   constructor(private analyticsService: AnalyticsService) {}
 
-  @Get('resumo')
-  getResumoGeral() {
-    return this.analyticsService.getResumoGeral();
-  }
-
-  @Get('municipio')
-  getTopMunicipios() {
-    return this.analyticsService.getTopMunicipios();
+  @Get('origem')
+  getOrigemDado() {
+    return this.analyticsService.getOrigemDado();
   }
 
   @Get('origem-publicacao')
@@ -22,28 +17,23 @@ export class AnalyticsController {
     return this.analyticsService.getOrigemPublicacao();
   }
 
-  @Get('normas-por-ano')
-  getNormasPorAno() {
-    return this.analyticsService.getNormasPorAno();
+  @Get('municipio')
+  getMunicipio() {
+    return this.analyticsService.getMunicipio();
   }
 
-  @Get('normas-por-tipo')
-  getNormasPorTipo() {
-    return this.analyticsService.getNormasPorTipo();
+  @Get('sincronizacao')
+  getSincronizacao() {
+    return this.analyticsService.getSincronizacao();
   }
 
-  @Get('normas-por-status')
-  getNormasPorStatus() {
-    return this.analyticsService.getNormasPorStatus();
+  @Get('volume-dia')
+  getVolumeDia() {
+    return this.analyticsService.getVolumeDia();
   }
 
-  @Get('normas-por-origem')
-  getNormasPorOrigem() {
-    return this.analyticsService.getNormasPorOrigem();
-  }
-
-  @Get('aplicabilidade')
-  getAplicabilidade() {
-    return this.analyticsService.getAplicabilidade();
+  @Get('management-systems')
+  getManagementSystems() {
+    return this.analyticsService.getManagementSystems();
   }
 }
