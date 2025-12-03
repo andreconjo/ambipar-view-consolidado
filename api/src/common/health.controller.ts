@@ -9,7 +9,7 @@ export class HealthController {
   async check() {
     try {
       // Check database connection
-      await this.databaseService.query('SELECT 1');
+      await this.databaseService.queryDatabricks('SELECT 1');
 
       return {
         status: 'ok',

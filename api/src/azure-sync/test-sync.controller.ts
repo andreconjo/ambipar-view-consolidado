@@ -141,7 +141,7 @@ export class TestSyncController {
   async testDuckDBStatus() {
     try {
       // Contar normas no DuckDB local
-      const normasResult = await this.databaseService.query(
+      const normasResult = await this.databaseService.queryNormas(
         'SELECT COUNT(*)::INTEGER as total FROM tb_normas_consolidadas',
       );
 
@@ -152,7 +152,7 @@ export class TestSyncController {
         );
 
       // Sample de 5 normas
-      const sampleResult = await this.databaseService.query(
+      const sampleResult = await this.databaseService.queryDatabricks(
         'SELECT id, numero_norma, tipo_norma, ementa FROM tb_normas_consolidadas LIMIT 5',
       );
 
@@ -213,7 +213,7 @@ export class TestSyncController {
 
       for (const norma of result as any[]) {
         // Mapear colunas do Databricks para DuckDB, tratando valores undefined
-        await this.databaseService.execute(
+        await this.databaseService.executeManagement(
           `INSERT INTO tb_normas_consolidadas 
            (id, tipo_norma, numero_norma, ano_publicacao, ementa, situacao, 
             status_vigencia, divisao_politica, origem_publicacao, origem_dado, 

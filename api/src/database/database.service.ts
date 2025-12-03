@@ -1,13 +1,10 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as duckdb from 'duckdb';
 import { DBSQLClient } from '@databricks/sql';
 
 @Injectable()
 export class DatabaseService implements OnModuleInit {
   private readonly logger = new Logger(DatabaseService.name);
-  private db: duckdb.Database;
-  private managementDb: duckdb.Database;
   private databricksClient: DBSQLClient;
   private databricksConnection: any;
   private databricksSession: any;
@@ -15,32 +12,8 @@ export class DatabaseService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    const dbPath = this.configService.get<string>('database.path') || './data/tb_normas_consolidadas.db';
-    const managementPath = this.configService.get<string>(
-      'database.managementPath',
-    ) || './data/management_systems_classifications.db';
-
-    // Initialize databases with promises to ensure connection
-    await new Promise<void>((resolve, reject) => {
-      this.db = new duckdb.Database(dbPath, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      this.managementDb = new duckdb.Database(managementPath, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-
-    this.logger.log(`Connected to main database: ${dbPath}`);
-    this.logger.log(`Connected to management database: ${managementPath}`);
-
     // Initialize Azure Databricks connection
     await this.initializeDatabricks();
-
     await this.initializeTables();
   }
 
@@ -75,41 +48,6 @@ export class DatabaseService implements OnModuleInit {
 
   private async initializeTables(): Promise<void> {
     try {
-      // Criar tabela principal de normas (apenas para DuckDB local)
-      await this.execute(`
-        CREATE TABLE IF NOT EXISTS tb_normas_consolidadas (
-          id INTEGER PRIMARY KEY,
-          tipo_norma VARCHAR(255),
-          numero_norma VARCHAR(255),
-          ano_publicacao INTEGER,
-          ementa TEXT,
-          situacao VARCHAR(255),
-          status_vigencia VARCHAR(255),
-          divisao_politica VARCHAR(255),
-          origem_publicacao VARCHAR(255),
-          origem_dado VARCHAR(255),
-          link_norma TEXT,
-          data_publicacao DATE,
-          aplicavel BOOLEAN,
-          sistema_gestao VARCHAR(500)
-        )
-      `);
-
-      // tb_usuarios e tb_normas_aprovacoes agora estão no Azure Databricks
-      this.logger.log('Skipping tb_usuarios and tb_normas_aprovacoes creation (managed in Azure Databricks)');
-
-      // Criar tabela de classifications no banco management (estrutura igual ao Flask)
-      await this.executeManagement(`
-        CREATE TABLE IF NOT EXISTS management_systems_classifications (
-          norm_id BIGINT,
-          mngm_sys VARCHAR(255),
-          classification BOOLEAN,
-          dst DOUBLE,
-          hst DOUBLE,
-          classification_injection TIMESTAMP
-        )
-      `);
-
       // Criar tabela de crawlers manual no Databricks
       try {
         await this.executeDatabricks(`
@@ -139,23 +77,6 @@ export class DatabaseService implements OnModuleInit {
     }
   }
 
-  getConnection(): duckdb.Database {
-    return this.db;
-  }
-
-  getManagementConnection(): duckdb.Database {
-    return this.managementDb;
-  }
-
-  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(sql, ...params, (err: Error | null, rows: any) => {
-        if (err) reject(err);
-        else resolve(rows as T[]);
-      });
-    });
-  }
-
   async queryManagement<T = any>(
     sql: string,
     params: any[] = [],
@@ -174,15 +95,6 @@ export class DatabaseService implements OnModuleInit {
     databricksSql = databricksSql.replace(/FROM\s+tb_management_systems_classifications/gi, 'FROM data_workspace.models.management_systems_classifications');
     
     return this.queryDatabricks<T>(databricksSql);
-  }
-
-  async execute(sql: string, params: any[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(sql, ...params, (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
   }
 
   async executeManagement(sql: string, params: any[] = []): Promise<void> {
@@ -206,13 +118,12 @@ export class DatabaseService implements OnModuleInit {
     return this.executeDatabricks(databricksSql);
   }
 
-  // Métodos para queries no Azure Databricks (usuários e aprovações)
+  // Métodos para queries no Azure Databricks
   async queryDatabricks<T = any>(sql: string): Promise<T[]> {
     this.logger.debug(`Query Databricks: ${sql}`);
     
     if (!this.databricksSession) {
-      this.logger.warn('Databricks not connected - using local database');
-      return this.query<T>(sql);
+      throw new Error('Databricks not connected - cannot execute query');
     }
     
     try {
@@ -233,8 +144,7 @@ export class DatabaseService implements OnModuleInit {
     this.logger.debug(`Execute Databricks: ${sql}`);
     
     if (!this.databricksSession) {
-      this.logger.warn('Databricks not connected - using local database');
-      return this.execute(sql);
+      throw new Error('Databricks not connected - cannot execute statement');
     }
     
     try {

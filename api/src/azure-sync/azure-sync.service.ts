@@ -79,7 +79,7 @@ export class AzureSyncService {
       let synced = 0;
 
       for (const norma of result as any[]) {
-        await this.databaseService.execute(
+        await this.databaseService.executeNormas(
           `INSERT INTO tb_normas_consolidadas 
            (id, tipo_norma, numero_norma, ano_publicacao, ementa, situacao, 
             status_vigencia, divisao_politica, origem_publicacao, origem_dado, 

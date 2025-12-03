@@ -169,19 +169,28 @@ export class NormasService {
       }
     }
 
-    // Atualizar cada norma com seu(s) sistema(s) de gestão usando ID (igual ao Flask)
-    let totalAtualizadas = 0;
-    for (const [normId, sistemas] of Object.entries(normasSistemas)) {
-      // Juntar múltiplos sistemas com vírgula
-      const sistemasStr = sistemas.length > 0 ? sistemas.join(', ') : null;
+    // Atualizar normas em lote usando CASE WHEN para performance otimizada
+    if (Object.keys(normasSistemas).length > 0) {
+      const normIds = Object.keys(normasSistemas).map(Number);
       
-      await this.databaseService.executeNormas(
-        `UPDATE tb_normas_consolidadas 
-         SET aplicavel = true, sistema_gestao = ? 
-         WHERE id = ?`,
-        [sistemasStr, Number(normId)]
-      );
-      totalAtualizadas++;
+      // Construir CASE WHEN para sistema_gestao
+      const caseWhenParts = Object.entries(normasSistemas).map(([normId, sistemas]) => {
+        const sistemasStr = sistemas.length > 0 ? sistemas.join(', ') : null;
+        return sistemasStr 
+          ? `WHEN ${normId} THEN '${sistemasStr.replace(/'/g, "''")}'`
+          : `WHEN ${normId} THEN NULL`;
+      });
+
+      const updateSql = `
+        UPDATE tb_normas_consolidadas 
+        SET aplicavel = true,
+            sistema_gestao = CASE id
+              ${caseWhenParts.join('\n              ')}
+            END
+        WHERE id IN (${normIds.join(',')})
+      `;
+
+      await this.databaseService.executeNormas(updateSql, []);
     }
 
     const result = await this.databaseService.queryNormas(
