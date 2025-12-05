@@ -13,7 +13,7 @@ import {
 import { NormasService } from './normas.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AprovacoesService } from '../aprovacoes/aprovacoes.service';
-import { CreateAprovacaoDto } from '../aprovacoes/dto/aprovacao.dto';
+import { RegistrarAprovacaoDto } from '../aprovacoes/dto/aprovacao.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { NormasFilterParams } from './dto/norma.dto';
 
@@ -81,12 +81,12 @@ export class NormasController {
   @Post(':id/aprovacao')
   registrarAprovacao(
     @Param('id', ParseIntPipe) normaId: number,
-    @Body() createAprovacaoDto: CreateAprovacaoDto,
+    @Body() registrarAprovacaoDto: RegistrarAprovacaoDto,
     @CurrentUser() user: any,
   ) {
     return this.aprovacoesService.registrarAprovacao(
       normaId,
-      createAprovacaoDto,
+      registrarAprovacaoDto,
       user,
     );
   }

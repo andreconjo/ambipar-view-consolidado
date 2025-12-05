@@ -13,6 +13,7 @@ export interface Norma {
   data_publicacao: string;
   aplicavel: boolean;
   sistema_gestao?: string;
+  status_aprovacao?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -24,6 +25,7 @@ export interface NormasFilterParams {
   origem_publicacao?: string;
   origem_dado?: string;
   aplicavel?: string;
+  status_aprovacao?: string;
   search?: string;
   page?: number;
   per_page?: number;

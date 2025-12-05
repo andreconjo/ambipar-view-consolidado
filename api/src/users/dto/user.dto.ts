@@ -1,7 +1,6 @@
 import {
   IsString,
   IsNotEmpty,
-  MinLength,
   IsBoolean,
   IsOptional,
   IsIn,
@@ -14,7 +13,6 @@ export class CreateUserDto {
 
   @IsString()
   @IsNotEmpty()
-  @MinLength(6)
   password: string;
 
   @IsString()
@@ -35,9 +33,8 @@ export class UpdateUserDto {
   @IsOptional()
   nome_completo?: string;
 
-  @IsString()
   @IsOptional()
-  @MinLength(6)
+  @IsString()
   password?: string;
 
   @IsString()

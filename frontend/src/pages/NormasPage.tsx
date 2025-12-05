@@ -363,6 +363,7 @@ export default function NormasPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAprovacaoModalOpen, setIsAprovacaoModalOpen] = useState(false);
   const [aprovacaoStatus, setAprovacaoStatus] = useState<'aprovado' | 'recusado' | null>(null);
+  const [isSubmittingAprovacao, setIsSubmittingAprovacao] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [pageInput, setPageInput] = useState('1');
 
@@ -424,6 +425,7 @@ export default function NormasPage() {
       return;
     }
 
+    setIsSubmittingAprovacao(true);
     try {
       await normasService.registrarAprovacao(selectedNorma.id, {
         status: aprovacaoStatus,
@@ -437,6 +439,8 @@ export default function NormasPage() {
     } catch (error) {
       console.error('Erro ao registrar aprovação:', error);
       toast.error('Erro ao registrar aprovação');
+    } finally {
+      setIsSubmittingAprovacao(false);
     }
   }, [selectedNorma, aprovacaoStatus, refetch]);
 
@@ -603,14 +607,23 @@ export default function NormasPage() {
                       setSelectedNorma(null);
                       setAprovacaoStatus(null);
                     }}
+                    disabled={isSubmittingAprovacao}
                   >
                     Cancelar
                   </Button>
                   <Button
                     onClick={handleConfirmarAprovacao}
                     variant={aprovacaoStatus === 'aprovado' ? 'secondary' : 'danger'}
+                    disabled={isSubmittingAprovacao}
                   >
-                    {aprovacaoStatus === 'aprovado' ? '✓ Confirmar Aprovação' : '✗ Confirmar Recusa'}
+                    {isSubmittingAprovacao ? (
+                      <>
+                        <span className="animate-spin inline-block mr-2">⏳</span>
+                        Processando...
+                      </>
+                    ) : (
+                      aprovacaoStatus === 'aprovado' ? '✓ Confirmar Aprovação' : '✗ Confirmar Recusa'
+                    )}
                   </Button>
                 </div>
               </div>

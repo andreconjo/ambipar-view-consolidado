@@ -17,6 +17,16 @@ export class CreateAprovacaoDto {
   observacao?: string;
 }
 
+export class RegistrarAprovacaoDto {
+  @IsString()
+  @IsNotEmpty()
+  status: string;
+
+  @IsString()
+  @IsOptional()
+  observacao?: string;
+}
+
 export class UpdateAprovacaoDto {
   @IsString()
   @IsOptional()

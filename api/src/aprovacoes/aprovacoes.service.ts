@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CreateAprovacaoDto, UpdateAprovacaoDto } from './dto/aprovacao.dto';
+import { CreateAprovacaoDto, UpdateAprovacaoDto, RegistrarAprovacaoDto } from './dto/aprovacao.dto';
 
 @Injectable()
 export class AprovacoesService {
@@ -134,7 +134,7 @@ export class AprovacoesService {
 
   async registrarAprovacao(
     normaId: number,
-    createAprovacaoDto: CreateAprovacaoDto,
+    registrarAprovacaoDto: RegistrarAprovacaoDto,
     user: any,
   ) {
     // Verificar se a norma existe
@@ -160,14 +160,14 @@ export class AprovacoesService {
     await this.databaseService.executeAprovacoes(
       `INSERT INTO tb_normas_aprovacoes (id, norma_id, status, solicitante, observacao, data_registro)
        VALUES (?, ?, ?, ?, ?, current_timestamp())`,
-      [newId, normaId, createAprovacaoDto.status, solicitante, createAprovacaoDto.observacao || ''],
+      [newId, normaId, registrarAprovacaoDto.status, solicitante, registrarAprovacaoDto.observacao || ''],
     );
 
     return {
-      message: `Norma ${createAprovacaoDto.status} com sucesso`,
+      message: `Norma ${registrarAprovacaoDto.status} com sucesso`,
       id: newId,
       norma_id: normaId,
-      status: createAprovacaoDto.status,
+      status: registrarAprovacaoDto.status,
       solicitante,
     };
   }

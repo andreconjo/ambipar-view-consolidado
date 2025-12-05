@@ -18,55 +18,78 @@ export class NormasService {
     const params: any[] = [];
 
     if (filters.tipo_norma) {
-      conditions.push('tipo_norma = ?');
+      conditions.push('n.tipo_norma = ?');
       params.push(filters.tipo_norma);
     }
 
     if (filters.status_vigencia) {
-      conditions.push('status_vigencia = ?');
+      conditions.push('n.status_vigencia = ?');
       params.push(filters.status_vigencia);
     }
 
     if (filters.divisao_politica) {
-      conditions.push('divisao_politica = ?');
+      conditions.push('n.divisao_politica = ?');
       params.push(filters.divisao_politica);
     }
 
     if (filters.origem_publicacao) {
-      conditions.push('origem_publicacao = ?');
+      conditions.push('n.origem_publicacao = ?');
       params.push(filters.origem_publicacao);
     }
 
     if (filters.origem_dado) {
-      conditions.push('origem_dado = ?');
+      conditions.push('n.origem_dado = ?');
       params.push(filters.origem_dado);
     }
 
     if (filters.aplicavel) {
       const aplicavelBool = filters.aplicavel === 'true';
-      conditions.push('aplicavel = ?');
+      conditions.push('n.aplicavel = ?');
       params.push(aplicavelBool);
     }
 
+    if (filters.status_aprovacao) {
+      conditions.push(
+        `EXISTS (
+          SELECT 1 FROM tb_normas_aprovacoes a 
+          WHERE a.norma_id = n.id 
+          AND a.status = ?
+          ORDER BY a.data_registro DESC 
+          LIMIT 1
+        )`
+      );
+      params.push(filters.status_aprovacao);
+    }
+
     if (filters.search) {
-      conditions.push('(ementa ILIKE ? OR numero_norma ILIKE ?)');
+      conditions.push('(n.ementa ILIKE ? OR n.numero_norma ILIKE ?)');
       params.push(`%${filters.search}%`, `%${filters.search}%`);
     }
 
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const countQuery = `SELECT COUNT(*) as total FROM tb_normas_consolidadas ${whereClause}`;
+    const countQuery = `SELECT COUNT(*) as total FROM tb_normas_consolidadas n ${whereClause}`;
     const countResult = await this.databaseService.queryNormas(countQuery, params);
     const total = Number(countResult[0].total);
 
+    // Query com subquery para buscar último status de aprovação (como no Flask)
     const dataQuery = `
-      SELECT * FROM tb_normas_consolidadas 
+      SELECT 
+        n.*,
+        (
+          SELECT status 
+          FROM tb_normas_aprovacoes 
+          WHERE norma_id = n.id 
+          ORDER BY data_registro DESC 
+          LIMIT 1
+        ) as status_aprovacao
+      FROM tb_normas_consolidadas n
       ${whereClause}
       ORDER BY 
-        CASE WHEN data_publicacao IS NULL THEN 1 ELSE 0 END,
-        data_publicacao DESC,
-        id DESC
+        CASE WHEN n.data_publicacao IS NULL THEN 1 ELSE 0 END,
+        n.data_publicacao DESC,
+        n.id DESC
       LIMIT ? OFFSET ?
     `;
 

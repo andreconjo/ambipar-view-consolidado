@@ -69,14 +69,13 @@ export const NormaForm = ({ norma, onClose, onSuccess }: NormaFormProps) => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="Número da Norma *"
+            label="Número da Norma"
             name="numero_norma"
             value={formData.numero_norma}
             onChange={handleChange}
-            required
           />
           <Select
-            label="Tipo de Norma *"
+            label="Tipo de Norma"
             name="tipo_norma"
             value={formData.tipo_norma}
             onChange={handleChange}
@@ -89,13 +88,12 @@ export const NormaForm = ({ norma, onClose, onSuccess }: NormaFormProps) => {
               { value: 'Instrução Normativa', label: 'Instrução Normativa' },
               { value: 'Medida Provisória', label: 'Medida Provisória' },
             ]}
-            required
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select
-            label="Divisão Política *"
+            label="Divisão Política"
             name="divisao_politica"
             value={formData.divisao_politica}
             onChange={handleChange}
@@ -105,23 +103,20 @@ export const NormaForm = ({ norma, onClose, onSuccess }: NormaFormProps) => {
               { value: 'Estadual', label: 'Estadual' },
               { value: 'Municipal', label: 'Municipal' },
             ]}
-            required
           />
           <Input
-            label="Órgão Emissor *"
+            label="Órgão Emissor"
             name="orgao_emissor"
             value={formData.orgao_emissor}
             onChange={handleChange}
-            required
           />
         </div>
 
         <Input
-          label="Título da Norma *"
+          label="Título da Norma"
           name="titulo_da_norma"
           value={formData.titulo_da_norma}
           onChange={handleChange}
-          required
         />
 
         <Textarea
