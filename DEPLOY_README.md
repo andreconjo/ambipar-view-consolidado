@@ -3,9 +3,8 @@
 ## 📦 Conteúdo do pacote
 
 Este pacote contém:
-- Backend Flask (API)
+- API NestJS (Backend) - conecta ao Azure Databricks
 - Frontend React (interface web)
-- Banco de dados DuckDB (em `/database/local_dev.db`)
 - Docker Compose configurado para produção
 
 ## 🚀 Instalação rápida
@@ -26,8 +25,16 @@ docker-compose up -d --build
 ### 3. Acessar a aplicação
 
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:4000
-- **Health Check**: http://localhost:4000/health
+- **API**: http://localhost:5001
+- **Health Check**: http://localhost:5001/health
+
+### 4. Login inicial
+
+Use as credenciais padrão:
+- **Email**: admin@ambipar.com
+- **Senha**: admin123
+
+⚠️ **IMPORTANTE**: Altere a senha padrão após o primeiro login!
 
 ## ⚙️ Configuração
 
@@ -37,24 +44,39 @@ Edite o arquivo `docker-compose.yml`:
 
 ```yaml
 services:
-  backend:
+  api:
     ports:
-      - "SUA_PORTA:5000"  # Ex: "8000:5000"
+      - "SUA_PORTA:5001"  # Ex: "8001:5001"
   
   frontend:
     ports:
       - "SUA_PORTA:80"    # Ex: "8080:80"
 ```
 
-### Usar banco de dados externo
+### Configurar variáveis de ambiente
 
-Se quiser usar um banco de dados diferente, altere o volume no `docker-compose.yml`:
+Edite o arquivo `api/.env.docker` para configurar:
+- Credenciais do Azure Databricks (se necessário atualizar)
+- JWT Secret (obrigatório mudar em produção)
+
+```env
+DATABRICKS_SERVER_HOSTNAME=seu-workspace.cloud.databricks.com
+DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/seu-warehouse-id
+DATABRICKS_ACCESS_TOKEN=seu-token
+JWT_SECRET=troque-por-um-secret-seguro
+```
+
+**Importante:** A API usa Azure Databricks como fonte de dados principal, não requer bancos de dados locais.
+
+### Persistir cache local (opcional)
+
+A API cria cache DuckDB local para melhor performance. Para persistir entre restarts:
 
 ```yaml
 services:
-  backend:
+  api:
     volumes:
-      - /caminho/para/seu/banco:/data
+      - ./api-data:/app/data
 ```
 
 ## 📊 Gerenciamento
@@ -65,8 +87,8 @@ services:
 # Todos os serviços
 docker-compose logs -f
 
-# Apenas backend
-docker-compose logs -f backend
+# Apenas API
+docker-compose logs -f api
 
 # Apenas frontend
 docker-compose logs -f frontend
@@ -103,15 +125,30 @@ docker-compose ps
 
 Se a porta já estiver em uso, altere no `docker-compose.yml` conforme descrito acima.
 
-### Banco de dados não encontrado
-
-Verifique se o arquivo `database/local_dev.db` existe no diretório.
-
 ### Erros de conexão
 
-Verifique os logs:
+Verifique os logs da API:
 ```bash
-docker-compose logs backend
+docker-compose logs api
+```
+
+### Problemas com Azure Databricks
+
+Verifique as credenciais no arquivo `api/.env.docker`:
+- DATABRICKS_SERVER_HOSTNAME
+- DATABRICKS_HTTP_PATH
+- DATABRICKS_ACCESS_TOKEN
+
+### API não inicia
+
+Possíveis causas:
+1. Porta 5001 já em uso
+2. Credenciais do Databricks inválidas
+3. Problemas de rede com Azure
+
+Verifique os logs detalhados:
+```bash
+docker-compose logs -f api
 ```
 
 ### Limpar tudo e recomeçar

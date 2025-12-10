@@ -16,8 +16,6 @@ echo -e "${GREEN}🚀 Preparando deploy...${NC}"
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMP_DIR="${BASE_DIR}/deploy_temp"
 ZIP_NAME="view_consolidado_deploy_$(date +%Y%m%d_%H%M%S).zip"
-DB_PATH="/Users/conjo/Documents/ambipar/db_consolidado/tb_normas_consolidadas.db"
-DB_MANAGEMENT_PATH="/Users/conjo/Documents/ambipar/db_consolidado/management_systems_classifications.db"
 
 # Limpar diretório temporário se existir
 if [ -d "$TEMP_DIR" ]; then
@@ -43,9 +41,13 @@ rsync -av --progress \
     --exclude='.cache' \
     --exclude='*.log' \
     --exclude='.env.local' \
+    --exclude='.env' \
     --exclude='deploy_temp' \
     --exclude='*.zip' \
     --exclude='docker-compose.yml' \
+    --exclude='backend' \
+    --exclude='backend-nest' \
+    --exclude='api/data' \
     "${BASE_DIR}/" "${TEMP_DIR}/view_consolidado/"
 
 # Copiar docker-compose para produção (renomeando .prod para final)
@@ -56,27 +58,6 @@ echo -e "${YELLOW}ℹ️  O arquivo docker-compose.prod.yml será usado como doc
 # Copiar README de deploy
 echo -e "${GREEN}📋 Copiando instruções de deploy...${NC}"
 cp "${BASE_DIR}/DEPLOY_README.md" "${TEMP_DIR}/view_consolidado/README.md"
-
-# Copiar banco de dados principal
-if [ -f "$DB_PATH" ]; then
-    echo -e "${GREEN}💾 Copiando banco de dados principal...${NC}"
-    mkdir -p "${TEMP_DIR}/view_consolidado/database"
-    cp "$DB_PATH" "${TEMP_DIR}/view_consolidado/database/tb_normas_consolidadas.db"
-    DB_SIZE=$(du -h "$DB_PATH" | cut -f1)
-    echo -e "${GREEN}✅ Banco de dados principal copiado (${DB_SIZE})${NC}"
-else
-    echo -e "${YELLOW}⚠️  Banco de dados principal não encontrado em: ${DB_PATH}${NC}"
-fi
-
-# Copiar banco de dados de classificações
-if [ -f "$DB_MANAGEMENT_PATH" ]; then
-    echo -e "${GREEN}💾 Copiando banco de dados de classificações...${NC}"
-    cp "$DB_MANAGEMENT_PATH" "${TEMP_DIR}/view_consolidado/database/management_systems_classifications.db"
-    DB_MGMT_SIZE=$(du -h "$DB_MANAGEMENT_PATH" | cut -f1)
-    echo -e "${GREEN}✅ Banco de dados de classificações copiado (${DB_MGMT_SIZE})${NC}"
-else
-    echo -e "${YELLOW}⚠️  Banco de dados de classificações não encontrado em: ${DB_MANAGEMENT_PATH}${NC}"
-fi
 
 # Ir para o diretório temporário
 cd "$TEMP_DIR"

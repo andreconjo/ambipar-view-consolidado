@@ -82,3 +82,5 @@ Thumbs.db
 
 *.zipapi/.env.docker
 backend/.env.docker
+api/.env.docker.backup
+*.xlsx
