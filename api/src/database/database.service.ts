@@ -277,10 +277,10 @@ export class DatabaseService implements OnModuleInit {
       databricksSql = databricksSql.replace('?', String(value));
     });
     
-    // Garantir que usa o schema correto: default
-    databricksSql = databricksSql.replace(/FROM\s+tb_health_scrappers/gi, 'FROM default.tb_health_scrappers');
-    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_health_scrappers/gi, 'INSERT INTO default.tb_health_scrappers');
-    databricksSql = databricksSql.replace(/UPDATE\s+tb_health_scrappers/gi, 'UPDATE default.tb_health_scrappers');
+    // Garantir que usa o caminho completo: data_workspace.default.tb_health_scrappers
+    databricksSql = databricksSql.replace(/FROM\s+tb_health_scrappers/gi, 'FROM data_workspace.default.tb_health_scrappers');
+    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_health_scrappers/gi, 'INSERT INTO data_workspace.default.tb_health_scrappers');
+    databricksSql = databricksSql.replace(/UPDATE\s+tb_health_scrappers/gi, 'UPDATE data_workspace.default.tb_health_scrappers');
     
     return this.queryDatabricks<T>(databricksSql);
   }
@@ -295,10 +295,10 @@ export class DatabaseService implements OnModuleInit {
       databricksSql = databricksSql.replace('?', String(value));
     });
     
-    // Garantir que usa o schema correto: default
-    databricksSql = databricksSql.replace(/FROM\s+tb_health_scrappers/gi, 'FROM default.tb_health_scrappers');
-    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_health_scrappers/gi, 'INSERT INTO default.tb_health_scrappers');
-    databricksSql = databricksSql.replace(/UPDATE\s+tb_health_scrappers/gi, 'UPDATE default.tb_health_scrappers');
+    // Garantir que usa o caminho completo: data_workspace.default.tb_health_scrappers
+    databricksSql = databricksSql.replace(/FROM\s+tb_health_scrappers/gi, 'FROM data_workspace.default.tb_health_scrappers');
+    databricksSql = databricksSql.replace(/INSERT\s+INTO\s+tb_health_scrappers/gi, 'INSERT INTO data_workspace.default.tb_health_scrappers');
+    databricksSql = databricksSql.replace(/UPDATE\s+tb_health_scrappers/gi, 'UPDATE data_workspace.default.tb_health_scrappers');
     
     return this.executeDatabricks(databricksSql);
   }

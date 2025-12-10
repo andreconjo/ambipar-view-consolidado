@@ -29,6 +29,8 @@ export interface ScraperHealthQuery {
   limit?: number;
 }
 
+
+
 export const scrapersService = {
   async getHealthRecords(filters?: ScraperHealthQuery): Promise<ScraperHealthRecord[]> {
     const params = new URLSearchParams();
