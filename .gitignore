@@ -80,4 +80,5 @@ Thumbs.db
 # Markdown files (exceto README e documentação importante)
 # *.md
 
-*.zip
+*.zipapi/.env.docker
+backend/.env.docker
