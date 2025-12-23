@@ -174,18 +174,22 @@ export class AzureSyncService {
       let synced = 0;
 
       for (const classification of result as any[]) {
+        // Mapeamento correto dos campos do Databricks:
+        // norm_id -> norma_id (id da norma)
+        // mngm_sys -> sistema_gestao
+        // classification_injection -> data_classificacao
         await this.databaseService.executeManagement(
           `INSERT INTO tb_management_systems_classifications 
-           (numero_norma, sistema_gestao, classification, data_classificacao)
+           (norma_id, sistema_gestao, classification, data_classificacao)
            VALUES (?, ?, ?, ?)
-           ON CONFLICT (numero_norma, sistema_gestao) DO UPDATE SET
+           ON CONFLICT (norma_id, sistema_gestao) DO UPDATE SET
              classification = EXCLUDED.classification,
              data_classificacao = EXCLUDED.data_classificacao`,
           [
-            classification.numero_norma,
-            classification.sistema_gestao,
+            classification.norm_id,
+            classification.mngm_sys,
             classification.classification,
-            classification.data_classificacao,
+            classification.classification_injection,
           ],
         );
         synced++;

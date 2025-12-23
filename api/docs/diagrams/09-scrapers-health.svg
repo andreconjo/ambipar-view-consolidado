@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 480">
+  <defs>
+    <linearGradient id="clientGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ctrlGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="svcGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dbGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="healthyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#11998e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38ef7d;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="warningGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f5af19;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f12711;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#667eea"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="850" height="480" fill="#1a1a2e"/>
+  
+  <!-- Title -->
+  <text x="425" y="30" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Monitoramento de Scrapers Health</text>
+  
+  <!-- Participants -->
+  <rect x="50" y="55" width="90" height="40" rx="8" fill="url(#clientGrad)" filter="url(#shadow)"/>
+  <text x="95" y="80" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Cliente</text>
+  
+  <rect x="195" y="55" width="130" height="40" rx="8" fill="url(#ctrlGrad)" filter="url(#shadow)"/>
+  <text x="260" y="80" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9" font-weight="bold">ScrapersController</text>
+  
+  <rect x="380" y="55" width="120" height="40" rx="8" fill="url(#svcGrad)" filter="url(#shadow)"/>
+  <text x="440" y="80" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9" font-weight="bold">ScrapersService</text>
+  
+  <rect x="560" y="55" width="110" height="40" rx="8" fill="url(#dbGrad)" filter="url(#shadow)"/>
+  <text x="615" y="80" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9" font-weight="bold">DatabaseService</text>
+  
+  <!-- tb_health_scrappers box -->
+  <rect x="720" y="55" width="110" height="40" rx="8" fill="#2d3748" stroke="#00f2fe" stroke-width="2"/>
+  <text x="775" y="72" text-anchor="middle" fill="#00f2fe" font-family="Arial, sans-serif" font-size="8" font-weight="bold">tb_health_</text>
+  <text x="775" y="85" text-anchor="middle" fill="#00f2fe" font-family="Arial, sans-serif" font-size="8" font-weight="bold">scrappers</text>
+  
+  <!-- Vertical lines (lifelines) - subtle -->
+  <line x1="95" y1="100" x2="95" y2="450" stroke="#667eea" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+  <line x1="260" y1="100" x2="260" y2="450" stroke="#38ef7d" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+  <line x1="440" y1="100" x2="440" y2="450" stroke="#f5576c" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+  <line x1="615" y1="100" x2="615" y2="450" stroke="#00f2fe" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+  
+  <!-- Step 1: Client to Controller -->
+  <path d="M 100 120 L 255 120" stroke="#667eea" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="120" y="105" width="110" height="22" rx="4" fill="#2d3748"/>
+  <text x="175" y="120" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">GET /scrapers/health</text>
+  
+  <!-- JWT Guard Note -->
+  <rect x="195" y="135" width="130" height="25" rx="4" fill="rgba(56,239,125,0.2)" stroke="#38ef7d" stroke-width="1"/>
+  <text x="260" y="152" text-anchor="middle" fill="#38ef7d" font-family="Arial, sans-serif" font-size="8">JwtAuthGuard</text>
+  
+  <!-- Step 2: Controller to Service -->
+  <path d="M 265 175 L 435 175" stroke="#38ef7d" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="300" y="160" width="100" height="22" rx="4" fill="#2d3748"/>
+  <text x="350" y="175" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">getHealthStatus()</text>
+  
+  <!-- Step 3: Service to DB -->
+  <path d="M 445 200 L 610 200" stroke="#f5576c" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="470" y="185" width="110" height="22" rx="4" fill="#2d3748"/>
+  <text x="525" y="200" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">queryScrapersHealth()</text>
+  
+  <!-- Step 4: DB to Table -->
+  <path d="M 620 225 L 770 225" stroke="#00f2fe" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="640" y="210" width="100" height="22" rx="4" fill="#2d3748"/>
+  <text x="690" y="225" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="8">SELECT * ORDER BY</text>
+  
+  <!-- Step 5: Table returns -->
+  <path d="M 770 250 L 620 250" stroke="#00f2fe" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="655" y="235" width="80" height="22" rx="4" fill="#2d3748"/>
+  <text x="695" y="250" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">rows[]</text>
+  
+  <!-- Step 6: DB returns to Service -->
+  <path d="M 610 275 L 445 275" stroke="#00f2fe" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="480" y="260" width="90" height="22" rx="4" fill="#2d3748"/>
+  <text x="525" y="275" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">scrapers[]</text>
+  
+  <!-- Service calculates health -->
+  <rect x="400" y="295" width="80" height="35" rx="4" fill="#4a5568" stroke="#f5576c" stroke-width="1"/>
+  <text x="440" y="310" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="8">Calcular</text>
+  <text x="440" y="322" text-anchor="middle" fill="#a0aec0" font-family="Arial, sans-serif" font-size="7">health status</text>
+  
+  <!-- Health status indicators -->
+  <rect x="520" y="295" width="160" height="80" rx="6" fill="rgba(255,255,255,0.05)"/>
+  <text x="600" y="312" text-anchor="middle" fill="#a0aec0" font-family="Arial, sans-serif" font-size="8" font-weight="bold">Status Possíveis:</text>
+  
+  <circle cx="540" cy="330" r="6" fill="url(#healthyGrad)"/>
+  <text x="610" y="334" text-anchor="middle" fill="#38ef7d" font-family="Arial, sans-serif" font-size="8">healthy - última exec &lt; 24h</text>
+  
+  <circle cx="540" cy="352" r="6" fill="url(#warningGrad)"/>
+  <text x="610" y="356" text-anchor="middle" fill="#f5af19" font-family="Arial, sans-serif" font-size="8">warning - última exec &gt; 24h</text>
+  
+  <circle cx="540" cy="374" r="6" fill="#ee0979"/>
+  <text x="610" y="378" text-anchor="middle" fill="#ee0979" font-family="Arial, sans-serif" font-size="8">error - falha na execução</text>
+  
+  <!-- Service to Controller -->
+  <path d="M 435 390 L 265 390" stroke="#f5576c" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="295" y="375" width="110" height="22" rx="4" fill="#2d3748"/>
+  <text x="350" y="390" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="9">{health, scrapers[]}</text>
+  
+  <!-- Controller to Client -->
+  <path d="M 255 415 L 100 415" stroke="url(#ctrlGrad)" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="135" y="400" width="80" height="22" rx="4" fill="rgba(56,239,125,0.2)" stroke="#38ef7d" stroke-width="1"/>
+  <text x="175" y="415" text-anchor="middle" fill="#38ef7d" font-family="Arial, sans-serif" font-size="9" font-weight="bold">200 OK</text>
+  
+  <!-- Response structure -->
+  <rect x="20" y="430" width="200" height="45" rx="4" fill="#2d3748"/>
+  <text x="120" y="448" text-anchor="middle" fill="#a0aec0" font-family="monospace" font-size="7">{overallHealth: "healthy",</text>
+  <text x="120" y="461" text-anchor="middle" fill="#a0aec0" font-family="monospace" font-size="7"> scrapers: [{name, status,</text>
+  <text x="120" y="474" text-anchor="middle" fill="#a0aec0" font-family="monospace" font-size="7">  lastRun, nextRun}]}</text>
+</svg>
